@@ -1,0 +1,2781 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PAGLIANI SERVICE — Gestionale Manutenzione</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;500;600;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+<!-- SheetJS per lettura Excel/CSV -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<style>
+:root {
+  --navy:    #0d1b2a;
+  --navy2:   #1b2e42;
+  --navy3:   #243a52;
+  --blue:    #1a6fb5;
+  --blue2:   #2185d8;
+  --orange:  #e07b1a;
+  --orange2: #f59322;
+  --white:   #f4f6f9;
+  --gray1:   #e8ecf1;
+  --gray2:   #c5cdd8;
+  --gray3:   #8a96a3;
+  --gray4:   #4a5568;
+  --red:     #c0392b;
+  --green:   #1a8a4a;
+  --sidebar: 240px;
+  --header:  58px;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+html,body { width:100%; height:100%; overflow:hidden; font-family:'DM Sans',sans-serif; background:var(--gray1); color:var(--navy); }
+
+/* ═══════════════ LOGIN ═══════════════ */
+#login-screen {
+  position:fixed; inset:0; background:var(--navy);
+  display:flex; align-items:center; justify-content:center; z-index:9999;
+  flex-direction:column; gap:0;
+}
+.login-box {
+  background:var(--navy2);
+  border:1px solid var(--navy3);
+  border-radius:8px;
+  padding:40px 48px;
+  width:360px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+}
+.login-logo {
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:28px; font-weight:700;
+  color:#fff; letter-spacing:2px;
+  margin-bottom:4px;
+}
+.login-logo span { color:var(--orange); }
+.login-sub { font-size:11px; color:var(--gray3); letter-spacing:1px; text-transform:uppercase; margin-bottom:32px; }
+.login-field { margin-bottom:16px; }
+.login-field label { display:block; font-size:11px; color:var(--gray3); letter-spacing:1px; text-transform:uppercase; margin-bottom:6px; }
+.login-field input {
+  width:100%; background:var(--navy3); border:1px solid rgba(255,255,255,0.08);
+  border-radius:4px; padding:10px 14px; color:#fff; font-family:'DM Sans',sans-serif; font-size:14px;
+  outline:none; transition:border-color .2s;
+}
+.login-field input:focus { border-color:var(--blue2); }
+.btn-login {
+  width:100%; padding:12px; background:var(--blue); border:none; border-radius:4px;
+  color:#fff; font-family:'Barlow Condensed',sans-serif; font-size:16px; font-weight:600;
+  letter-spacing:1px; cursor:pointer; transition:background .2s; margin-top:8px;
+}
+.btn-login:hover { background:var(--blue2); }
+.login-err { color:#e74c3c; font-size:12px; text-align:center; margin-top:12px; display:none; }
+
+/* ═══════════════ LAYOUT ═══════════════ */
+#app { display:none; }
+#app.active {
+  display:flex;
+  flex-direction:column;
+  width:100vw;
+  height:100vh;
+  overflow:hidden;
+}
+
+/* HEADER */
+#header {
+  height:var(--header); background:var(--navy); 
+  display:flex; align-items:center; padding:0 20px;
+  gap:16px; border-bottom:2px solid var(--blue);
+  flex-shrink:0; z-index:100;
+}
+.header-logo {
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:22px; font-weight:700; color:#fff; letter-spacing:2px; white-space:nowrap;
+}
+.header-logo span { color:var(--orange); }
+.header-divider { width:1px; height:28px; background:var(--navy3); }
+.header-section-title {
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:16px; font-weight:500; color:var(--gray2); letter-spacing:1px;
+}
+.header-right { margin-left:auto; display:flex; align-items:center; gap:16px; }
+.user-badge {
+  display:flex; align-items:center; gap:8px;
+  background:var(--navy2); border:1px solid var(--navy3);
+  padding:6px 14px; border-radius:4px;
+}
+.user-badge-name { font-size:13px; color:#fff; font-weight:500; }
+.user-badge-role { font-size:10px; color:var(--orange); text-transform:uppercase; letter-spacing:1px; }
+.btn-logout {
+  background:transparent; border:1px solid var(--navy3); border-radius:4px;
+  padding:6px 14px; color:var(--gray3); font-size:12px; cursor:pointer;
+  font-family:'DM Sans',sans-serif; transition:all .2s;
+}
+.btn-logout:hover { border-color:var(--red); color:var(--red); }
+
+/* BODY */
+#body { display:flex; flex:1; overflow:hidden; min-height:0; }
+
+/* SIDEBAR */
+#sidebar {
+  width:var(--sidebar); background:var(--navy2);
+  border-right:1px solid var(--navy3);
+  display:flex; flex-direction:column;
+  flex-shrink:0; overflow-y:auto;
+  height:100%;
+}
+
+/* MAIN */
+#main { flex:1; overflow-y:auto; background:var(--gray1); min-width:0; }
+.sidebar-section { padding:20px 0 8px; }
+.sidebar-section-label {
+  font-size:10px; color:var(--gray3); letter-spacing:2px;
+  text-transform:uppercase; padding:0 20px 8px;
+}
+.nav-item {
+  display:flex; align-items:center; gap:12px;
+  padding:10px 20px; cursor:pointer;
+  color:var(--gray2); font-size:13px; font-weight:500;
+  transition:all .15s; border-left:3px solid transparent;
+  user-select:none;
+}
+.nav-item:hover { background:rgba(255,255,255,0.04); color:#fff; }
+.nav-item.active { background:rgba(26,111,181,0.15); color:var(--blue2); border-left-color:var(--blue2); }
+.nav-icon { font-size:16px; width:20px; text-align:center; }
+.sidebar-bottom { margin-top:auto; padding:16px; border-top:1px solid var(--navy3); }
+.version-tag { font-size:10px; color:var(--gray3); }
+
+/* MAIN */
+.page { display:none; padding:24px; }
+.page.active { display:block; }
+
+/* PAGE HEADER */
+.page-header {
+  display:flex; align-items:center; justify-content:space-between;
+  margin-bottom:24px;
+}
+.page-title {
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:28px; font-weight:700; color:var(--navy); letter-spacing:1px;
+}
+.page-subtitle { font-size:13px; color:var(--gray3); margin-top:2px; }
+
+/* STATS CARDS */
+.stats-row { display:flex; gap:16px; margin-bottom:24px; flex-wrap:wrap; }
+.stat-card {
+  background:#fff; border-radius:6px; padding:20px 24px;
+  border:1px solid var(--gray2); flex:1; min-width:140px;
+  border-top:3px solid var(--blue);
+}
+.stat-card.orange { border-top-color:var(--orange); }
+.stat-card.green  { border-top-color:var(--green); }
+.stat-card.red    { border-top-color:var(--red); }
+.stat-val { font-family:'Barlow Condensed',sans-serif; font-size:36px; font-weight:700; color:var(--navy); }
+.stat-lbl { font-size:12px; color:var(--gray3); text-transform:uppercase; letter-spacing:1px; margin-top:2px; }
+
+/* TOOLBAR */
+.toolbar {
+  display:flex; align-items:center; gap:10px;
+  background:#fff; border:1px solid var(--gray2);
+  border-radius:6px; padding:12px 16px; margin-bottom:16px;
+  flex-wrap:wrap;
+}
+.search-input {
+  flex:1; min-width:200px; border:1px solid var(--gray2);
+  border-radius:4px; padding:8px 12px; font-family:'DM Sans',sans-serif;
+  font-size:13px; outline:none; transition:border-color .2s;
+}
+.search-input:focus { border-color:var(--blue2); }
+
+/* BUTTONS */
+.btn {
+  padding:8px 18px; border-radius:4px; font-family:'DM Sans',sans-serif;
+  font-size:13px; font-weight:500; cursor:pointer; border:none; transition:all .2s;
+  display:inline-flex; align-items:center; gap:6px; white-space:nowrap;
+}
+.btn-primary { background:var(--blue); color:#fff; }
+.btn-primary:hover { background:var(--blue2); }
+.btn-secondary { background:#fff; color:var(--navy); border:1px solid var(--gray2); }
+.btn-secondary:hover { border-color:var(--blue); color:var(--blue); }
+.btn-orange { background:var(--orange); color:#fff; }
+.btn-orange:hover { background:var(--orange2); }
+.btn-danger { background:var(--red); color:#fff; }
+.btn-danger:hover { opacity:.85; }
+.btn-sm { padding:5px 12px; font-size:12px; }
+
+/* TABLE */
+.table-wrap { background:#fff; border:1px solid var(--gray2); border-radius:6px; overflow:hidden; }
+table { width:100%; border-collapse:collapse; }
+thead { background:var(--navy); color:#fff; }
+thead th {
+  padding:12px 16px; text-align:left;
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:13px; font-weight:600; letter-spacing:1px;
+  text-transform:uppercase; white-space:nowrap;
+}
+tbody tr { border-bottom:1px solid var(--gray1); transition:background .1s; }
+tbody tr:last-child { border-bottom:none; }
+tbody tr:hover { background:rgba(26,111,181,0.04); }
+tbody td { padding:11px 16px; font-size:13px; color:var(--navy); }
+.td-matricola { font-family:'Barlow Condensed',sans-serif; font-size:15px; font-weight:600; }
+.td-km { font-family:'Barlow Condensed',sans-serif; font-size:14px; }
+.td-actions { display:flex; gap:6px; }
+
+/* BADGE STATO */
+.badge {
+  display:inline-flex; align-items:center; gap:4px;
+  padding:3px 10px; border-radius:20px; font-size:11px; font-weight:600;
+  letter-spacing:.5px; text-transform:uppercase;
+}
+.badge-green  { background:#d4edda; color:#155724; }
+.badge-orange { background:#fff3cd; color:#856404; }
+.badge-red    { background:#f8d7da; color:#721c24; }
+.badge-gray   { background:var(--gray1); color:var(--gray4); }
+
+/* MODAL */
+.modal-overlay {
+  position:fixed; inset:0; background:rgba(0,0,0,0.5);
+  display:none; align-items:center; justify-content:center; z-index:500;
+}
+.modal-overlay.open { display:flex; }
+.modal {
+  background:#fff; border-radius:8px; width:560px; max-width:95vw;
+  max-height:90vh; overflow-y:auto;
+  box-shadow:0 20px 60px rgba(0,0,0,0.3);
+}
+.modal-header {
+  background:var(--navy); color:#fff; padding:20px 24px;
+  display:flex; align-items:center; justify-content:space-between;
+  border-radius:8px 8px 0 0;
+}
+.modal-title { font-family:'Barlow Condensed',sans-serif; font-size:20px; font-weight:700; letter-spacing:1px; }
+.modal-close { background:none; border:none; color:var(--gray2); font-size:20px; cursor:pointer; padding:0 4px; }
+.modal-close:hover { color:#fff; }
+.modal-body { padding:24px; }
+.modal-footer { padding:16px 24px; border-top:1px solid var(--gray1); display:flex; gap:10px; justify-content:flex-end; }
+
+/* FORM */
+.form-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+.form-full { grid-column:1/-1; }
+.form-group { display:flex; flex-direction:column; gap:5px; }
+.form-label { font-size:11px; color:var(--gray4); font-weight:600; letter-spacing:.5px; text-transform:uppercase; }
+.form-input, .form-select, .form-textarea {
+  border:1px solid var(--gray2); border-radius:4px;
+  padding:9px 12px; font-family:'DM Sans',sans-serif; font-size:13px;
+  outline:none; transition:border-color .2s; background:#fff;
+}
+.form-input:focus, .form-select:focus, .form-textarea:focus { border-color:var(--blue2); }
+.form-textarea { resize:vertical; min-height:80px; }
+
+/* IMPORT */
+.import-zone {
+  border:2px dashed var(--gray2); border-radius:8px;
+  padding:40px; text-align:center; cursor:pointer;
+  transition:all .2s; background:var(--gray1);
+}
+.import-zone:hover, .import-zone.dragover { border-color:var(--blue2); background:rgba(26,111,181,0.05); }
+.import-zone-icon { font-size:40px; margin-bottom:12px; }
+.import-zone-text { font-size:14px; color:var(--gray4); }
+.import-zone-sub { font-size:12px; color:var(--gray3); margin-top:4px; }
+.import-preview { margin-top:16px; }
+.import-preview table { font-size:11px; }
+.import-preview thead { background:var(--navy3); }
+.import-preview thead th { font-size:10px; padding:6px 10px; }
+.import-preview tbody td { padding:5px 10px; }
+
+/* RUOLI PAGE */
+.ruoli-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(280px,1fr)); gap:16px; }
+.ruolo-card {
+  background:#fff; border:1px solid var(--gray2); border-radius:6px;
+  padding:20px; border-top:3px solid var(--blue);
+}
+.ruolo-card.admin-card { border-top-color:var(--orange); }
+.ruolo-nome { font-family:'Barlow Condensed',sans-serif; font-size:20px; font-weight:700; color:var(--navy); }
+.ruolo-desc { font-size:12px; color:var(--gray3); margin:4px 0 16px; }
+.permessi-list { display:flex; flex-direction:column; gap:6px; }
+.permesso-item { display:flex; align-items:center; justify-content:space-between; font-size:12px; }
+.permesso-lbl { color:var(--gray4); }
+.permesso-val { font-weight:600; }
+.permesso-si { color:var(--green); }
+.permesso-no { color:var(--red); }
+
+/* UTENTI */
+.utente-avatar {
+  width:34px; height:34px; border-radius:50%;
+  background:var(--blue); color:#fff;
+  display:inline-flex; align-items:center; justify-content:center;
+  font-family:'Barlow Condensed',sans-serif; font-size:14px; font-weight:700;
+}
+
+/* EMPTY STATE */
+.empty-state { text-align:center; padding:60px 20px; color:var(--gray3); }
+.empty-icon { font-size:48px; margin-bottom:12px; }
+.empty-text { font-size:15px; font-weight:500; color:var(--gray4); }
+.empty-sub { font-size:13px; margin-top:4px; }
+
+/* TOAST */
+#toast {
+  position:fixed; bottom:24px; right:24px; z-index:9000;
+  display:flex; flex-direction:column; gap:8px;
+}
+.toast-item {
+  background:var(--navy); color:#fff; padding:12px 20px;
+  border-radius:6px; font-size:13px; font-weight:500;
+  border-left:4px solid var(--blue2);
+  animation:slideIn .3s ease; box-shadow:0 4px 20px rgba(0,0,0,0.3);
+}
+.toast-item.success { border-left-color:var(--green); }
+.toast-item.error   { border-left-color:var(--red); }
+.toast-item.warning { border-left-color:var(--orange); }
+@keyframes slideIn { from{transform:translateX(60px);opacity:0} to{transform:translateX(0);opacity:1} }
+
+/* SCROLLBAR */
+::-webkit-scrollbar { width:6px; height:6px; }
+::-webkit-scrollbar-track { background:transparent; }
+::-webkit-scrollbar-thumb { background:var(--gray2); border-radius:3px; }
+::-webkit-scrollbar-thumb:hover { background:var(--gray3); }
+
+/* RESPONSIVE */
+@media(max-width:768px){
+  :root { --sidebar:0px; }
+  #sidebar { display:none; }
+  .form-grid { grid-template-columns:1fr; }
+  .stats-row { flex-direction:column; }
+}
+</style>
+</head>
+<body>
+
+<!-- ══════════════ LOGIN ══════════════ -->
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-logo">PAGLIANI <span>SERVICE</span></div>
+    <div class="login-sub">Gestionale Manutenzione</div>
+    <div class="login-field">
+      <label>Username</label>
+      <input type="text" id="login-user" placeholder="es. mario.rossi" autocomplete="off">
+    </div>
+    <div class="login-field">
+      <label>PIN</label>
+      <input type="password" id="login-pin" placeholder="••••" maxlength="6" autocomplete="off">
+    </div>
+    <button class="btn-login" onclick="doLogin()">ACCEDI</button>
+    <div class="login-err" id="login-err">Credenziali non valide</div>
+  </div>
+</div>
+
+<!-- ══════════════ APP ══════════════ -->
+<div id="app">
+
+  <!-- HEADER -->
+  <div id="header">
+    <div class="header-logo">PAGLIANI <span>SERVICE</span></div>
+    <div class="header-divider"></div>
+    <div class="header-section-title" id="header-section">Dashboard</div>
+    <div class="header-right">
+      <div class="user-badge">
+        <div>
+          <div class="user-badge-name" id="hdr-username">—</div>
+          <div class="user-badge-role" id="hdr-role">—</div>
+        </div>
+      </div>
+      <button class="btn-logout" onclick="doLogout()">Esci</button>
+    </div>
+  </div>
+
+  <div id="body">
+
+    <!-- SIDEBAR -->
+    <div id="sidebar">
+      <div class="sidebar-section">
+        <div class="sidebar-section-label">Principale</div>
+        <div class="nav-item active" onclick="showPage('dashboard')" id="nav-dashboard">
+          <span class="nav-icon">📊</span> Dashboard
+        </div>
+        <div class="nav-item" onclick="showPage('mezzi')" id="nav-mezzi">
+          <span class="nav-icon">🚌</span> Anagrafica Mezzi
+        </div>
+        <div class="nav-item" onclick="showPage('manutenzioni')" id="nav-manutenzioni">
+          <span class="nav-icon">🔧</span> Manutenzioni
+        </div>
+        <div class="nav-item" onclick="showPage('import')" id="nav-import">
+          <span class="nav-icon">📥</span> Import SAP
+        </div>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-section-label">Magazzino</div>
+        <div class="nav-item" onclick="showPage('fornitori')" id="nav-fornitori">
+          <span class="nav-icon">🏭</span> Fornitori
+        </div>
+        <div class="nav-item" onclick="showPage('ricambi')" id="nav-ricambi">
+          <span class="nav-icon">🔧</span> Ricambi
+        </div>
+        <div class="nav-item" onclick="showPage('giacenze')" id="nav-giacenze">
+          <span class="nav-icon">📦</span> Giacenze
+        </div>
+        <div class="nav-item" onclick="showPage('movimenti')" id="nav-movimenti">
+          <span class="nav-icon">↕️</span> Movimenti
+        </div>
+        <div class="nav-item" onclick="showPage('ordini')" id="nav-ordini">
+          <span class="nav-icon">🛒</span> Ordini Acquisto
+        </div>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-section-label">Amministrazione</div>
+        <div class="nav-item" onclick="showPage('utenti')" id="nav-utenti">
+          <span class="nav-icon">👥</span> Utenti
+        </div>
+        <div class="nav-item" onclick="showPage('ruoli')" id="nav-ruoli">
+          <span class="nav-icon">🔑</span> Ruoli & Permessi
+        </div>
+      </div>
+      <div class="sidebar-bottom">
+        <div class="version-tag">PAGLIANI SERVICE v1.1 — Magazzino</div>
+      </div>
+    </div>
+
+    <!-- MAIN -->
+    <div id="main">
+
+      <!-- ── DASHBOARD ── -->
+      <div class="page active" id="page-dashboard">
+        <div class="page-header">
+          <div>
+            <div class="page-title">Dashboard</div>
+            <div class="page-subtitle">Panoramica generale del parco mezzi</div>
+          </div>
+        </div>
+        <div class="stats-row">
+          <div class="stat-card">
+            <div class="stat-val" id="stat-totale">—</div>
+            <div class="stat-lbl">Mezzi Totali</div>
+          </div>
+          <div class="stat-card green">
+            <div class="stat-val" id="stat-attivi">—</div>
+            <div class="stat-lbl">In Servizio</div>
+          </div>
+          <div class="stat-card orange">
+            <div class="stat-val" id="stat-fermi">—</div>
+            <div class="stat-lbl">Fermi</div>
+          </div>
+          <div class="stat-card red">
+            <div class="stat-val" id="stat-revisione">—</div>
+            <div class="stat-lbl">In Revisione</div>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Matricola</th>
+                <th>Targa</th>
+                <th>Modello</th>
+                <th>KM Attuali</th>
+                <th>Stato</th>
+                <th>Ultimo Aggiornamento</th>
+              </tr>
+            </thead>
+            <tbody id="dash-tbody">
+              <tr><td colspan="6"><div class="empty-state"><div class="empty-icon">🚌</div><div class="empty-text">Nessun mezzo registrato</div><div class="empty-sub">Aggiungi mezzi o importa da SAP</div></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ── MEZZI ── -->
+      <div class="page" id="page-mezzi">
+        <div class="page-header">
+          <div>
+            <div class="page-title">Anagrafica Mezzi</div>
+            <div class="page-subtitle">Gestione completa del parco veicoli</div>
+          </div>
+          <button class="btn btn-primary" onclick="openModalMezzo()">＋ Nuovo Mezzo</button>
+        </div>
+        <div class="toolbar">
+          <input class="search-input" type="text" id="search-mezzi" placeholder="🔍  Cerca per matricola, targa, modello..." oninput="filterMezzi()">
+          <select class="form-select" id="filter-stato" onchange="filterMezzi()" style="width:140px">
+            <option value="">Tutti gli stati</option>
+            <option value="attivo">In Servizio</option>
+            <option value="fermo">Fermo</option>
+            <option value="revisione">In Revisione</option>
+          </select>
+          <button class="btn btn-secondary btn-sm" onclick="exportCSV()">⬇ CSV</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Matricola</th>
+                <th>Targa</th>
+                <th>Marca / Modello</th>
+                <th>Anno</th>
+                <th>KM Attuali</th>
+                <th>Stato</th>
+                <th>Note</th>
+                <th>Azioni</th>
+              </tr>
+            </thead>
+            <tbody id="mezzi-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ── IMPORT SAP ── -->
+      <div class="page" id="page-import">
+        <div class="page-header">
+          <div>
+            <div class="page-title">Import SAP</div>
+            <div class="page-subtitle">Importa dati da export HTML di SAP</div>
+          </div>
+        </div>
+
+        <!-- TAB SELECTOR -->
+        <div style="display:flex;gap:0;margin-bottom:20px;background:#fff;border:1px solid var(--gray2);border-radius:6px;overflow:hidden;width:fit-content">
+          <button id="tab-btn-manut" onclick="switchImportTab('manut')"
+            style="padding:10px 24px;font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:700;letter-spacing:1px;border:none;cursor:pointer;background:var(--navy);color:#fff;">
+            🔧 MANUTENZIONI PROGRAMMATE
+          </button>
+          <button id="tab-btn-mezzi" onclick="switchImportTab('mezzi')"
+            style="padding:10px 24px;font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:700;letter-spacing:1px;border:none;cursor:pointer;background:#fff;color:var(--gray3);">
+            🚌 ANAGRAFICA MEZZI
+          </button>
+        </div>
+
+        <!-- ══ TAB MANUTENZIONI ══ -->
+        <div id="tab-manut">
+          <!-- Mappa colonne fissa per questa transazione SAP -->
+          <div style="background:#fff;border:1px solid var(--gray2);border-radius:6px;padding:20px;margin-bottom:20px;">
+            <div style="font-family:'Barlow Condensed',sans-serif;font-size:17px;font-weight:700;color:var(--navy);margin-bottom:12px;">
+              📋 Mapping Colonne — Manutenzioni SAP
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;margin-bottom:12px;">
+              <div class="form-group">
+                <label class="form-label">Matricola (Sede tecn.)</label>
+                <input class="form-input" type="number" id="mc-matricola" value="0" min="0">
+              </div>
+              <div class="form-group">
+                <label class="form-label">N° Ordine SAP</label>
+                <input class="form-input" type="number" id="mc-ordine" value="1" min="0">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Tipo Ordine</label>
+                <input class="form-input" type="number" id="mc-tipo" value="2" min="0">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Centro / Resp.</label>
+                <input class="form-input" type="number" id="mc-centro" value="3" min="0">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Data Inizio</label>
+                <input class="form-input" type="number" id="mc-data" value="4" min="0">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Descrizione (Tsto br.)</label>
+                <input class="form-input" type="number" id="mc-desc" value="5" min="0">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Pacchetto</label>
+                <input class="form-input" type="number" id="mc-pacch" value="6" min="0">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Diff KM</label>
+                <input class="form-input" type="number" id="mc-km" value="7" min="0">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Righe header da saltare</label>
+                <input class="form-input" type="number" id="mc-skip" value="1" min="0">
+              </div>
+            </div>
+          </div>
+
+          <div class="import-zone" id="import-zone-manut"
+            onclick="document.getElementById('file-manut').click()"
+            ondragover="event.preventDefault();this.classList.add('dragover')"
+            ondragleave="this.classList.remove('dragover')"
+            ondrop="handleDropManut(event)">
+            <div class="import-zone-icon">📂</div>
+            <div class="import-zone-text">Clicca o trascina il file SAP — Manutenzioni</div>
+            <div class="import-zone-sub">Formati supportati: Excel (.xlsx, .xls), CSV, HTML — Col. A=Matricola, B=Ordine, E=Data, F=Descrizione, H=Diff KM</div>
+            <input type="file" id="file-manut" accept=".html,.htm,.xls,.xlsx,.csv" style="display:none" onchange="handleFileManut(this)">
+          </div>
+
+          <div id="import-preview-manut" style="display:none;margin-top:20px;">
+            <div style="background:#fff;border:1px solid var(--gray2);border-radius:6px;padding:20px;">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px;">
+                <div>
+                  <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;color:var(--navy);">
+                    Preview — <span id="manut-count">0</span> righe rilevate
+                    (<span id="manut-mezzi-count">0</span> mezzi distinti)
+                  </div>
+                  <div style="font-size:12px;color:var(--gray3);margin-top:2px;">Verifica prima di importare</div>
+                </div>
+                <div style="display:flex;gap:10px;align-items:center;">
+                  <select class="form-select btn-sm" id="manut-mode">
+                    <option value="merge">Aggiorna esistenti</option>
+                    <option value="skip">Salta duplicati</option>
+                    <option value="overwrite">Sovrascrivi tutto</option>
+                  </select>
+                  <button class="btn btn-primary" onclick="doImportManut()">✓ Importa Manutenzioni</button>
+                  <button class="btn btn-secondary" onclick="resetImportManut()">✕ Annulla</button>
+                </div>
+              </div>
+              <div class="import-preview table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Matricola</th><th>N° Ordine</th><th>Tipo</th>
+                      <th>Descrizione</th><th>Data Prev.</th><th>Diff KM</th><th>Centro</th><th>Pacchetto</th>
+                    </tr>
+                  </thead>
+                  <tbody id="manut-tbody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ══ TAB ANAGRAFICA MEZZI ══ -->
+        <div id="tab-mezzi" style="display:none">
+          <div style="background:#fff;border:1px solid var(--gray2);border-radius:6px;padding:20px;margin-bottom:20px;">
+            <div style="font-family:'Barlow Condensed',sans-serif;font-size:17px;font-weight:700;color:var(--navy);margin-bottom:12px;">
+              📋 Mapping Colonne — Anagrafica Mezzi SAP
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;margin-bottom:12px;">
+              <div class="form-group">
+                <label class="form-label">Colonna Matricola</label>
+                <input class="form-input" type="number" id="col-matricola" value="0" min="0">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Colonna Targa</label>
+                <input class="form-input" type="number" id="col-targa" value="1" min="0">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Colonna Marca</label>
+                <input class="form-input" type="number" id="col-marca" value="2" min="0">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Colonna Modello</label>
+                <input class="form-input" type="number" id="col-modello" value="3" min="0">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Colonna Anno</label>
+                <input class="form-input" type="number" id="col-anno" value="4" min="0">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Colonna KM</label>
+                <input class="form-input" type="number" id="col-km" value="5" min="0">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Righe header da saltare</label>
+                <input class="form-input" type="number" id="col-skip" value="1" min="0">
+              </div>
+            </div>
+          </div>
+
+          <div class="import-zone" id="import-zone"
+            onclick="document.getElementById('file-sap').click()"
+            ondragover="event.preventDefault();this.classList.add('dragover')"
+            ondragleave="this.classList.remove('dragover')"
+            ondrop="handleDrop(event)">
+            <div class="import-zone-icon">📂</div>
+            <div class="import-zone-text">Clicca o trascina il file HTML SAP — Anagrafica Mezzi</div>
+            <div class="import-zone-sub">Export transazione anagrafica veicoli da SAP</div>
+            <input type="file" id="file-sap" accept=".html,.htm" style="display:none" onchange="handleFileSAP(this)">
+          </div>
+
+          <div id="import-preview-wrap" style="display:none;margin-top:20px;">
+            <div style="background:#fff;border:1px solid var(--gray2);border-radius:6px;padding:20px;">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px;">
+                <div>
+                  <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;color:var(--navy);">
+                    Preview Import — <span id="import-count">0</span> mezzi rilevati
+                  </div>
+                  <div style="font-size:12px;color:var(--gray3);margin-top:2px;">Verifica i dati prima di confermare</div>
+                </div>
+                <div style="display:flex;gap:10px;align-items:center;">
+                  <select class="form-select btn-sm" id="import-mode">
+                    <option value="merge">Aggiorna esistenti</option>
+                    <option value="overwrite">Sovrascrivi tutto</option>
+                    <option value="skip">Salta esistenti</option>
+                  </select>
+                  <button class="btn btn-primary" onclick="doImport()">✓ Importa Mezzi</button>
+                  <button class="btn btn-secondary" onclick="resetImport()">✕ Annulla</button>
+                </div>
+              </div>
+              <div class="import-preview table-wrap">
+                <table>
+                  <thead>
+                    <tr><th>Matricola</th><th>Targa</th><th>Marca</th><th>Modello</th><th>Anno</th><th>KM</th><th>Stato</th></tr>
+                  </thead>
+                  <tbody id="import-tbody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── MANUTENZIONI ── -->
+      <div class="page" id="page-manutenzioni">
+        <div class="page-header">
+          <div>
+            <div class="page-title">Manutenzioni Programmate</div>
+            <div class="page-subtitle">Piano interventi importato da SAP</div>
+          </div>
+          <div style="display:flex;gap:10px;">
+            <button class="btn btn-secondary" onclick="showPage('import');switchImportTab('manut')">📥 Import SAP</button>
+            <button class="btn btn-primary" onclick="openModalManutManuale()">＋ Manuale</button>
+          </div>
+        </div>
+        <div class="toolbar">
+          <input class="search-input" type="text" id="search-manut" placeholder="🔍  Cerca per matricola, descrizione, ordine..." oninput="filterManutenzioni()">
+          <select class="form-select" id="filter-manut-stato" onchange="filterManutenzioni()" style="width:160px">
+            <option value="">Tutti gli stati</option>
+            <option value="programmata">Programmata</option>
+            <option value="in_corso">In corso</option>
+            <option value="completata">Completata</option>
+            <option value="scaduta">Scaduta</option>
+          </select>
+          <select class="form-select" id="filter-manut-tipo" onchange="filterManutenzioni()" style="width:140px">
+            <option value="">Tutti i tipi</option>
+            <option value="ZM04">ZM04</option>
+            <option value="PM01">PM01</option>
+            <option value="altro">Altro</option>
+          </select>
+          <button class="btn btn-secondary btn-sm" onclick="exportManutenzioniCSV()">⬇ CSV</button>
+        </div>
+        <div class="stats-row" style="margin-bottom:16px">
+          <div class="stat-card"><div class="stat-val" id="stat-manut-tot">—</div><div class="stat-lbl">Totali</div></div>
+          <div class="stat-card orange"><div class="stat-val" id="stat-manut-prog">—</div><div class="stat-lbl">Programmate</div></div>
+          <div class="stat-card green"><div class="stat-val" id="stat-manut-comp">—</div><div class="stat-lbl">Completate</div></div>
+          <div class="stat-card red"><div class="stat-val" id="stat-manut-scad">—</div><div class="stat-lbl">Scadute</div></div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Matricola</th><th>N° Ordine SAP</th><th>Tipo</th><th>Descrizione</th><th>Data Prev.</th><th>Diff KM</th><th>Centro</th><th>Stato</th><th>Azioni</th></tr>
+            </thead>
+            <tbody id="manut-list-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ── UTENTI ── -->
+      <div class="page" id="page-utenti">
+        <div class="page-header">
+          <div>
+            <div class="page-title">Utenti</div>
+            <div class="page-subtitle">Gestione accessi al sistema</div>
+          </div>
+          <button class="btn btn-primary" onclick="openModalUtente()">＋ Nuovo Utente</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Utente</th><th>Username</th><th>Ruolo</th><th>Creato il</th><th>Azioni</th></tr>
+            </thead>
+            <tbody id="utenti-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ── RUOLI ── -->
+      <div class="page" id="page-ruoli">
+        <div class="page-header">
+          <div>
+            <div class="page-title">Ruoli & Permessi</div>
+            <div class="page-subtitle">Configura i livelli di accesso al sistema</div>
+          </div>
+          <button class="btn btn-primary" onclick="openModalRuolo()">＋ Nuovo Ruolo</button>
+        </div>
+        <div class="ruoli-grid" id="ruoli-grid"></div>
+      </div>
+
+      <!-- ── FORNITORI ── -->
+      <div class="page" id="page-fornitori">
+        <div class="page-header">
+          <div><div class="page-title">Fornitori</div><div class="page-subtitle">Anagrafica fornitori ricambi e materiali</div></div>
+          <button class="btn btn-primary" onclick="openModalFornitore()">＋ Nuovo Fornitore</button>
+        </div>
+        <div class="toolbar">
+          <input class="search-input" type="text" id="search-fornitori" placeholder="🔍  Cerca fornitore..." oninput="filterFornitori()">
+        </div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Ragione Sociale</th><th>Codice</th><th>P.IVA</th><th>Referente</th><th>Telefono</th><th>Email</th><th>Categoria</th><th>Azioni</th></tr></thead>
+          <tbody id="fornitori-tbody"></tbody>
+        </table></div>
+      </div>
+
+      <!-- ── RICAMBI ── -->
+      <div class="page" id="page-ricambi">
+        <div class="page-header">
+          <div><div class="page-title">Ricambi</div><div class="page-subtitle">Anagrafica articoli e ricambi</div></div>
+          <button class="btn btn-primary" onclick="openModalRicambio()">＋ Nuovo Ricambio</button>
+        </div>
+        <div class="toolbar">
+          <input class="search-input" type="text" id="search-ricambi" placeholder="🔍  Cerca per codice, descrizione..." oninput="filterRicambi()">
+          <select class="form-select" id="filter-cat-ricambi" onchange="filterRicambi()" style="width:160px">
+            <option value="">Tutte le categorie</option>
+            <option>Motore</option><option>Freni</option><option>Trasmissione</option>
+            <option>Elettrico</option><option>Carrozzeria</option><option>Pneumatici</option>
+            <option>Filtri</option><option>Lubrificanti</option><option>Altro</option>
+          </select>
+          <button class="btn btn-secondary btn-sm" onclick="exportRicambiCSV()">⬇ CSV</button>
+        </div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Codice</th><th>Descrizione</th><th>Categoria</th><th>U.M.</th><th>Cod. SAP</th><th>Fornitore</th><th>Prezzo €</th><th>Scorta Min.</th><th>Azioni</th></tr></thead>
+          <tbody id="ricambi-tbody"></tbody>
+        </table></div>
+      </div>
+
+      <!-- ── GIACENZE ── -->
+      <div class="page" id="page-giacenze">
+        <div class="page-header">
+          <div><div class="page-title">Giacenze</div><div class="page-subtitle">Stock attuale per articolo</div></div>
+          <button class="btn btn-orange" onclick="openModalMovimento('carico')">＋ Carico Merce</button>
+        </div>
+        <div class="toolbar">
+          <input class="search-input" type="text" id="search-giacenze" placeholder="🔍  Cerca articolo..." oninput="filterGiacenze()">
+          <select class="form-select" id="filter-giacenze-alert" onchange="filterGiacenze()" style="width:160px">
+            <option value="">Tutti</option>
+            <option value="alert">⚠ Sotto scorta minima</option>
+            <option value="ok">✓ Regolari</option>
+            <option value="zero">❌ Esauriti</option>
+          </select>
+        </div>
+        <div class="stats-row" style="margin-bottom:16px">
+          <div class="stat-card"><div class="stat-val" id="stat-articoli">—</div><div class="stat-lbl">Articoli Totali</div></div>
+          <div class="stat-card red"><div class="stat-val" id="stat-sottoscorta">—</div><div class="stat-lbl">Sotto Scorta</div></div>
+          <div class="stat-card orange"><div class="stat-val" id="stat-esauriti">—</div><div class="stat-lbl">Esauriti</div></div>
+          <div class="stat-card green"><div class="stat-val" id="stat-valore">—</div><div class="stat-lbl">Valore Stock €</div></div>
+        </div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Codice</th><th>Descrizione</th><th>Categoria</th><th>Ubicazione</th><th>Qta Disponibile</th><th>Scorta Min.</th><th>Stato</th><th>Azioni</th></tr></thead>
+          <tbody id="giacenze-tbody"></tbody>
+        </table></div>
+      </div>
+
+      <!-- ── MOVIMENTI ── -->
+      <div class="page" id="page-movimenti">
+        <div class="page-header">
+          <div><div class="page-title">Movimenti Magazzino</div><div class="page-subtitle">Storico carichi, scarichi e trasferimenti</div></div>
+          <div style="display:flex;gap:10px">
+            <button class="btn btn-orange" onclick="openModalMovimento('carico')">＋ Carico</button>
+            <button class="btn btn-primary" onclick="openModalMovimento('scarico')">− Scarico</button>
+            <button class="btn btn-secondary" onclick="openModalMovimento('trasferimento')">↔ Trasferimento</button>
+          </div>
+        </div>
+        <div class="toolbar">
+          <input class="search-input" type="text" id="search-movimenti" placeholder="🔍  Cerca per articolo, mezzo, commessa..." oninput="filterMovimenti()">
+          <select class="form-select" id="filter-tipo-mov" onchange="filterMovimenti()" style="width:150px">
+            <option value="">Tutti i tipi</option>
+            <option value="carico">Carico</option><option value="scarico">Scarico</option><option value="trasferimento">Trasferimento</option>
+          </select>
+          <input type="date" class="form-input" id="filter-data-mov" onchange="filterMovimenti()" style="width:150px">
+          <button class="btn btn-secondary btn-sm" onclick="exportMovimentiCSV()">⬇ CSV</button>
+        </div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Data</th><th>Tipo</th><th>Articolo</th><th>Qta</th><th>Mezzo</th><th>Commessa</th><th>Fornitore/Note</th><th>Operatore</th></tr></thead>
+          <tbody id="movimenti-tbody"></tbody>
+        </table></div>
+      </div>
+
+      <!-- ── ORDINI ── -->
+      <div class="page" id="page-ordini">
+        <div class="page-header">
+          <div><div class="page-title">Ordini Acquisto</div><div class="page-subtitle">Gestione richieste e ordini ai fornitori</div></div>
+          <button class="btn btn-primary" onclick="openModalOrdine()">＋ Nuovo Ordine</button>
+        </div>
+        <div class="toolbar">
+          <input class="search-input" type="text" id="search-ordini" placeholder="🔍  Cerca ordine..." oninput="filterOrdini()">
+          <select class="form-select" id="filter-stato-ordine" onchange="filterOrdini()" style="width:160px">
+            <option value="">Tutti gli stati</option>
+            <option value="bozza">Bozza</option><option value="inviato">Inviato</option>
+            <option value="confermato">Confermato</option><option value="ricevuto">Ricevuto parz.</option><option value="chiuso">Chiuso</option>
+          </select>
+        </div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>N° Ordine</th><th>Data</th><th>Fornitore</th><th>Articoli</th><th>Totale €</th><th>Stato</th><th>Data Cons. Prev.</th><th>Azioni</th></tr></thead>
+          <tbody id="ordini-tbody"></tbody>
+        </table></div>
+      </div>
+
+    </div><!-- /main -->
+  </div><!-- /body -->
+</div><!-- /app -->
+
+<!-- ════════ MODALI ════════ -->
+
+<!-- Modal Mezzo -->
+<div class="modal-overlay" id="modal-mezzo">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-mezzo-title">NUOVO MEZZO</div>
+      <button class="modal-close" onclick="closeModal('modal-mezzo')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Matricola *</label>
+          <input class="form-input" id="f-matricola" placeholder="es. 1234">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Targa</label>
+          <input class="form-input" id="f-targa" placeholder="es. AB123CD">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Marca</label>
+          <input class="form-input" id="f-marca" placeholder="es. Mercedes, Iveco...">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Modello</label>
+          <input class="form-input" id="f-modello" placeholder="es. Citaro, Urbanway...">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Anno Immatricolazione</label>
+          <input class="form-input" id="f-anno" type="number" placeholder="es. 2018">
+        </div>
+        <div class="form-group">
+          <label class="form-label">KM Attuali</label>
+          <input class="form-input" id="f-km" type="number" placeholder="es. 125000">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Stato</label>
+          <select class="form-select" id="f-stato">
+            <option value="attivo">In Servizio</option>
+            <option value="fermo">Fermo</option>
+            <option value="revisione">In Revisione</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Data Ult. Aggiornamento KM</label>
+          <input class="form-input" id="f-data-km" type="date">
+        </div>
+        <div class="form-group form-full">
+          <label class="form-label">Note</label>
+          <textarea class="form-textarea" id="f-note" placeholder="Note aggiuntive..."></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-mezzo')">Annulla</button>
+      <button class="btn btn-primary" onclick="saveMezzo()">Salva</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Utente -->
+<div class="modal-overlay" id="modal-utente">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-utente-title">NUOVO UTENTE</div>
+      <button class="modal-close" onclick="closeModal('modal-utente')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Nome Completo *</label>
+          <input class="form-input" id="u-nome" placeholder="es. Mario Rossi">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Username *</label>
+          <input class="form-input" id="u-username" placeholder="es. mario.rossi">
+        </div>
+        <div class="form-group">
+          <label class="form-label">PIN (4-6 cifre) *</label>
+          <input class="form-input" id="u-pin" type="password" maxlength="6" placeholder="••••">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Ruolo *</label>
+          <select class="form-select" id="u-ruolo"></select>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-utente')">Annulla</button>
+      <button class="btn btn-primary" onclick="saveUtente()">Salva</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Ruolo -->
+<div class="modal-overlay" id="modal-ruolo">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">NUOVO RUOLO</div>
+      <button class="modal-close" onclick="closeModal('modal-ruolo')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Nome Ruolo *</label>
+          <input class="form-input" id="r-nome" placeholder="es. Meccanico">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Descrizione</label>
+          <input class="form-input" id="r-desc" placeholder="es. Operatore officina">
+        </div>
+      </div>
+      <div style="margin-top:20px;font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;color:var(--navy);margin-bottom:12px;">Permessi</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;" id="permessi-checks">
+        <!-- generati da JS -->
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-ruolo')">Annulla</button>
+      <button class="btn btn-primary" onclick="saveRuolo()">Salva</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<!-- Modal Fornitore -->
+<div class="modal-overlay" id="modal-fornitore">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-fornitore-title">NUOVO FORNITORE</div>
+      <button class="modal-close" onclick="closeModal('modal-fornitore')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group form-full">
+          <label class="form-label">Ragione Sociale *</label>
+          <input class="form-input" id="fn-ragione" placeholder="es. Ricambi Bus Srl">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Codice Fornitore</label>
+          <input class="form-input" id="fn-codice" placeholder="es. FORN001">
+        </div>
+        <div class="form-group">
+          <label class="form-label">P.IVA</label>
+          <input class="form-input" id="fn-piva" placeholder="es. 12345678901">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Referente</label>
+          <input class="form-input" id="fn-referente" placeholder="Nome referente commerciale">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Telefono</label>
+          <input class="form-input" id="fn-tel" placeholder="es. 02 1234567">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Email</label>
+          <input class="form-input" id="fn-email" type="email" placeholder="es. info@fornitore.it">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Categoria</label>
+          <select class="form-select" id="fn-categoria">
+            <option>Ricambi meccanici</option><option>Elettronica</option>
+            <option>Carrozzeria</option><option>Pneumatici</option>
+            <option>Lubrificanti</option><option>Altro</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Giorni consegna media</label>
+          <input class="form-input" id="fn-giorni" type="number" placeholder="es. 5">
+        </div>
+        <div class="form-group form-full">
+          <label class="form-label">Indirizzo</label>
+          <input class="form-input" id="fn-indirizzo" placeholder="Via, Città, CAP">
+        </div>
+        <div class="form-group form-full">
+          <label class="form-label">Note</label>
+          <textarea class="form-textarea" id="fn-note" placeholder="Note aggiuntive..."></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-fornitore')">Annulla</button>
+      <button class="btn btn-primary" onclick="saveFornitore()">Salva</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Ricambio -->
+<div class="modal-overlay" id="modal-ricambio">
+  <div class="modal" style="width:640px">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-ricambio-title">NUOVO RICAMBIO</div>
+      <button class="modal-close" onclick="closeModal('modal-ricambio')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Codice Interno *</label>
+          <input class="form-input" id="rc-codice" placeholder="es. RIC-0001">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Codice SAP</label>
+          <input class="form-input" id="rc-sap" placeholder="Codice da SAP">
+        </div>
+        <div class="form-group form-full">
+          <label class="form-label">Descrizione *</label>
+          <input class="form-input" id="rc-descrizione" placeholder="es. Filtro olio motore">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Categoria</label>
+          <select class="form-select" id="rc-categoria">
+            <option>Motore</option><option>Freni</option><option>Trasmissione</option>
+            <option>Elettrico</option><option>Carrozzeria</option><option>Pneumatici</option>
+            <option>Filtri</option><option>Lubrificanti</option><option>Altro</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Unità di Misura</label>
+          <select class="form-select" id="rc-um">
+            <option>PZ</option><option>LT</option><option>KG</option>
+            <option>MT</option><option>CF</option><option>SET</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Codice Fornitore Art.</label>
+          <input class="form-input" id="rc-cod-forn" placeholder="Codice fornitore">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Fornitore Preferenziale</label>
+          <select class="form-select" id="rc-fornitore"></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Prezzo Acquisto €</label>
+          <input class="form-input" id="rc-prezzo" type="number" step="0.01" placeholder="0.00">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Scorta Minima</label>
+          <input class="form-input" id="rc-scorta-min" type="number" placeholder="es. 5">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Ubicazione (scaffale/bin)</label>
+          <input class="form-input" id="rc-ubicazione" placeholder="es. A3-12">
+        </div>
+        <div class="form-group form-full">
+          <label class="form-label">Note tecniche</label>
+          <textarea class="form-textarea" id="rc-note" placeholder="Applicabilità, note tecniche..."></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-ricambio')">Annulla</button>
+      <button class="btn btn-primary" onclick="saveRicambio()">Salva</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Movimento -->
+<div class="modal-overlay" id="modal-movimento">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-movimento-title">CARICO MERCE</div>
+      <button class="modal-close" onclick="closeModal('modal-movimento')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="mv-tipo">
+      <div class="form-grid">
+        <div class="form-group form-full">
+          <label class="form-label">Articolo *</label>
+          <select class="form-select" id="mv-ricambio"></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Quantità *</label>
+          <input class="form-input" id="mv-qta" type="number" step="0.01" min="0.01" placeholder="es. 5">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Data *</label>
+          <input class="form-input" id="mv-data" type="date">
+        </div>
+        <div class="form-group" id="mv-mezzo-wrap">
+          <label class="form-label">Mezzo (matricola)</label>
+          <select class="form-select" id="mv-mezzo">
+            <option value="">— Nessuno —</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">N° Commessa</label>
+          <input class="form-input" id="mv-commessa" placeholder="es. COM-2024-001">
+        </div>
+        <div class="form-group" id="mv-fornitore-wrap">
+          <label class="form-label">Fornitore</label>
+          <select class="form-select" id="mv-fornitore">
+            <option value="">— Nessuno —</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Prezzo Unitario €</label>
+          <input class="form-input" id="mv-prezzo" type="number" step="0.01" placeholder="0.00">
+        </div>
+        <div class="form-group">
+          <label class="form-label">N° DDT / Documento</label>
+          <input class="form-input" id="mv-ddt" placeholder="es. DDT-12345">
+        </div>
+        <div class="form-group form-full">
+          <label class="form-label">Note</label>
+          <textarea class="form-textarea" id="mv-note" placeholder="Note sul movimento..." style="min-height:60px"></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-movimento')">Annulla</button>
+      <button class="btn btn-primary" id="btn-salva-movimento" onclick="saveMovimento()">Registra</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Ordine -->
+<div class="modal-overlay" id="modal-ordine">
+  <div class="modal" style="width:700px">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-ordine-title">NUOVO ORDINE ACQUISTO</div>
+      <button class="modal-close" onclick="closeModal('modal-ordine')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Fornitore *</label>
+          <select class="form-select" id="ord-fornitore"></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Data Ordine *</label>
+          <input class="form-input" id="ord-data" type="date">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Data Consegna Prevista</label>
+          <input class="form-input" id="ord-data-cons" type="date">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Stato</label>
+          <select class="form-select" id="ord-stato">
+            <option value="bozza">Bozza</option>
+            <option value="inviato">Inviato</option>
+            <option value="confermato">Confermato</option>
+            <option value="ricevuto">Ricevuto parz.</option>
+            <option value="chiuso">Chiuso</option>
+          </select>
+        </div>
+        <div class="form-group form-full">
+          <label class="form-label">Note</label>
+          <textarea class="form-textarea" id="ord-note" placeholder="Note ordine..." style="min-height:60px"></textarea>
+        </div>
+      </div>
+      <!-- Righe ordine -->
+      <div style="margin-top:20px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;color:var(--navy)">Articoli Ordinati</div>
+          <button class="btn btn-secondary btn-sm" onclick="addRigaOrdine()">＋ Aggiungi riga</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Articolo</th><th>Qta</th><th>Prezzo €</th><th>Totale</th><th></th></tr></thead>
+            <tbody id="righe-ordine-tbody"></tbody>
+          </table>
+        </div>
+        <div style="text-align:right;margin-top:10px;font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:700;color:var(--navy)">
+          Totale: € <span id="ord-totale">0.00</span>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-ordine')">Annulla</button>
+      <button class="btn btn-primary" onclick="saveOrdine()">Salva Ordine</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Manutenzione Manuale -->
+<div class="modal-overlay" id="modal-manut-manuale">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-manut-title">NUOVA MANUTENZIONE</div>
+      <button class="modal-close" onclick="closeModal('modal-manut-manuale')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Matricola Mezzo *</label>
+          <select class="form-select" id="mm-matricola"></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">N° Ordine SAP</label>
+          <input class="form-input" id="mm-ordine" placeholder="es. 83234321">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Tipo Ordine</label>
+          <select class="form-select" id="mm-tipo">
+            <option value="ZM04">ZM04</option>
+            <option value="PM01">PM01</option>
+            <option value="altro">Altro</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Centro / Responsabile</label>
+          <input class="form-input" id="mm-centro" placeholder="es. SD-PAG">
+        </div>
+        <div class="form-group form-full">
+          <label class="form-label">Descrizione Intervento *</label>
+          <input class="form-input" id="mm-desc" placeholder="es. 30K KM CICLO CHECK BUS">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Data Prevista</label>
+          <input class="form-input" id="mm-data" type="date">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Diff KM</label>
+          <input class="form-input" id="mm-km" type="number" placeholder="es. -13379">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Pacchetto</label>
+          <input class="form-input" id="mm-pacch" placeholder="es. 12">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Stato</label>
+          <select class="form-select" id="mm-stato">
+            <option value="programmata">Programmata</option>
+            <option value="in_corso">In corso</option>
+            <option value="completata">Completata</option>
+            <option value="scaduta">Scaduta</option>
+          </select>
+        </div>
+        <div class="form-group form-full">
+          <label class="form-label">Note</label>
+          <textarea class="form-textarea" id="mm-note" placeholder="Note aggiuntive..." style="min-height:60px"></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-manut-manuale')">Annulla</button>
+      <button class="btn btn-primary" onclick="saveManutManuale()">Salva</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ FIREBASE + LOGICA ════════ -->
+<script>
+// ── FIREBASE CONFIG ──
+const firebaseConfig = {
+  apiKey: "AIzaSyA5Nr2qVGm68ssyUcbcEovpOBW2Fr48TXo",
+  authDomain: "pagliani-service-86793.firebaseapp.com",
+  databaseURL: "https://pagliani-service-86793-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "pagliani-service-86793",
+  storageBucket: "pagliani-service-86793.firebasestorage.app",
+  messagingSenderId: "947862577385",
+  appId: "1:947862577385:web:7ccaeaede17da3502bd078"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+// ── PERMESSI DISPONIBILI ──
+const ALL_PERMESSI = [
+  { key:'mezzi_leggi',       label:'Leggi Mezzi' },
+  { key:'mezzi_scrivi',      label:'Modifica Mezzi' },
+  { key:'mezzi_elimina',     label:'Elimina Mezzi' },
+  { key:'import_sap',        label:'Import SAP' },
+  { key:'magazzino_leggi',   label:'Leggi Magazzino' },
+  { key:'magazzino_scrivi',  label:'Modifica Magazzino' },
+  { key:'magazzino_elimina', label:'Elimina da Magazzino' },
+  { key:'ordini_gestisci',   label:'Gestisci Ordini' },
+  { key:'utenti_gestisci',   label:'Gestisci Utenti' },
+  { key:'ruoli_gestisci',    label:'Gestisci Ruoli' },
+];
+
+// ── STATO APP ──
+let currentUser = null;
+let mezziData      = {};
+let utentiData     = {};
+let ruoliData      = {};
+let fornitoriData  = {};
+let ricambiData    = {};
+let giacenzeData   = {};
+let movimentiData  = {};
+let ordiniData     = {};
+let manutenzioniData = {};
+let editingKey  = null;
+let importRows  = [];
+
+// ── LOGIN ──
+async function doLogin() {
+  const user = document.getElementById('login-user').value.trim();
+  const pin  = document.getElementById('login-pin').value.trim();
+  if (!user || !pin) return;
+
+  // Prima volta: crea admin di default
+  const snap = await db.ref('pagliani/utenti').once('value');
+  if (!snap.exists()) {
+    await initDefaultData();
+  }
+
+  const snapU = await db.ref('pagliani/utenti').once('value');
+  let found = null;
+  snapU.forEach(child => {
+    const u = child.val();
+    if (u.username === user && u.pin === pin) found = { key: child.key, ...u };
+  });
+
+  if (!found) {
+    document.getElementById('login-err').style.display = 'block';
+    return;
+  }
+  document.getElementById('login-err').style.display = 'none';
+  currentUser = found;
+  localStorage.setItem('pagliani_session', JSON.stringify(found));
+  startApp();
+}
+
+async function initDefaultData() {
+  // Ruoli di default
+  const adminId = db.ref('pagliani/ruoli').push().key;
+  const gestId  = db.ref('pagliani/ruoli').push().key;
+  const opId    = db.ref('pagliani/ruoli').push().key;
+  const ruoliDefault = {};
+  ruoliDefault[adminId] = {
+    nome:'Admin', desc:'Accesso completo al sistema', colore:'orange',
+    permessi:{ mezzi_leggi:true, mezzi_scrivi:true, mezzi_elimina:true, import_sap:true, utenti_gestisci:true, ruoli_gestisci:true }
+  };
+  ruoliDefault[gestId] = {
+    nome:'Gestore', desc:'Gestione mezzi e manutenzioni', colore:'blue',
+    permessi:{ mezzi_leggi:true, mezzi_scrivi:true, mezzi_elimina:false, import_sap:true, utenti_gestisci:false, ruoli_gestisci:false }
+  };
+  ruoliDefault[opId] = {
+    nome:'Operatore', desc:'Solo lettura e aggiornamento KM', colore:'gray',
+    permessi:{ mezzi_leggi:true, mezzi_scrivi:false, mezzi_elimina:false, import_sap:false, utenti_gestisci:false, ruoli_gestisci:false }
+  };
+  await db.ref('pagliani/ruoli').set(ruoliDefault);
+
+  // Utente admin di default
+  const adminUid = db.ref('pagliani/utenti').push().key;
+  await db.ref('pagliani/utenti/' + adminUid).set({
+    nome:'Amministratore', username:'admin', pin:'1234',
+    ruolo_id: adminId, creato: new Date().toISOString()
+  });
+}
+
+function doLogout() {
+  localStorage.removeItem('pagliani_session');
+  currentUser = null;
+  document.getElementById('app').classList.remove('active');
+  document.getElementById('login-screen').style.display = 'flex';
+}
+
+function startApp() {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app').classList.add('active');
+  document.getElementById('hdr-username').textContent = currentUser.nome;
+
+  // Carica ruolo
+  db.ref('pagliani/ruoli/' + currentUser.ruolo_id).once('value').then(s => {
+    if (s.exists()) document.getElementById('hdr-role').textContent = s.val().nome;
+  });
+
+  loadAll();
+}
+
+function loadAll() {
+  db.ref('pagliani/mezzi').on('value', snap => {
+    mezziData = snap.val() || {};
+    renderMezzi(); renderDashboard();
+  });
+  db.ref('pagliani/utenti').on('value', snap => {
+    utentiData = snap.val() || {};
+    renderUtenti();
+  });
+  db.ref('pagliani/ruoli').on('value', snap => {
+    ruoliData = snap.val() || {};
+    renderRuoli(); populateRuoloSelect();
+  });
+  db.ref('pagliani/fornitori').on('value', snap => {
+    fornitoriData = snap.val() || {};
+    renderFornitori(); populateFornitoreSelect();
+  });
+  db.ref('pagliani/ricambi').on('value', snap => {
+    ricambiData = snap.val() || {};
+    renderRicambi(); renderGiacenze(); populateRicambioSelect();
+  });
+  db.ref('pagliani/movimenti').on('value', snap => {
+    movimentiData = snap.val() || {};
+    renderMovimenti(); renderDashboard();
+  });
+  db.ref('pagliani/manutenzioni').on('value', snap => {
+    manutenzioniData = snap.val() || {};
+    renderManutenzioni();
+  });
+  db.ref('pagliani/ordini').on('value', snap => {
+    ordiniData = snap.val() || {};
+    renderOrdini();
+  });
+}
+
+// ── NAVIGAZIONE ──
+function showPage(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  document.getElementById('nav-' + page).classList.add('active');
+  const titles = {
+    dashboard:'Dashboard', mezzi:'Anagrafica Mezzi', import:'Import SAP',
+    manutenzioni:'Manutenzioni Programmate',
+    utenti:'Utenti', ruoli:'Ruoli & Permessi',
+    fornitori:'Fornitori', ricambi:'Ricambi', giacenze:'Giacenze',
+    movimenti:'Movimenti Magazzino', ordini:'Ordini Acquisto'
+  };
+  document.getElementById('header-section').textContent = titles[page] || page;
+}
+
+// ── MEZZI ──
+function renderMezzi() {
+  const tbody = document.getElementById('mezzi-tbody');
+  const rows = Object.entries(mezziData);
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="empty-icon">🚌</div><div class="empty-text">Nessun mezzo registrato</div><div class="empty-sub">Usa "Nuovo Mezzo" o importa da SAP</div></div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = rows.map(([k,m]) => `
+    <tr>
+      <td class="td-matricola">${m.matricola||'—'}</td>
+      <td>${m.targa||'—'}</td>
+      <td>${[m.marca,m.modello].filter(Boolean).join(' / ')||'—'}</td>
+      <td>${m.anno||'—'}</td>
+      <td class="td-km">${m.km_attuali ? Number(m.km_attuali).toLocaleString('it-IT')+' km' : '—'}</td>
+      <td>${badgeStato(m.stato)}</td>
+      <td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--gray3)">${m.note||''}</td>
+      <td><div class="td-actions">
+        <button class="btn btn-secondary btn-sm" onclick="openModalMezzo('${k}')">✏️</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteMezzo('${k}')">🗑</button>
+      </div></td>
+    </tr>`).join('');
+}
+
+function renderDashboard() {
+  const vals = Object.values(mezziData);
+  document.getElementById('stat-totale').textContent    = vals.length;
+  document.getElementById('stat-attivi').textContent    = vals.filter(m=>m.stato==='attivo').length;
+  document.getElementById('stat-fermi').textContent     = vals.filter(m=>m.stato==='fermo').length;
+  document.getElementById('stat-revisione').textContent = vals.filter(m=>m.stato==='revisione').length;
+
+  const tbody = document.getElementById('dash-tbody');
+  if (!vals.length) {
+    tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><div class="empty-icon">🚌</div><div class="empty-text">Nessun mezzo registrato</div></div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = Object.entries(mezziData).slice(0,10).map(([k,m]) => `
+    <tr>
+      <td class="td-matricola">${m.matricola||'—'}</td>
+      <td>${m.targa||'—'}</td>
+      <td>${[m.marca,m.modello].filter(Boolean).join(' ')||'—'}</td>
+      <td class="td-km">${m.km_attuali ? Number(m.km_attuali).toLocaleString('it-IT')+' km' : '—'}</td>
+      <td>${badgeStato(m.stato)}</td>
+      <td style="color:var(--gray3);font-size:12px">${m.data_km||'—'}</td>
+    </tr>`).join('');
+}
+
+function badgeStato(stato) {
+  const map = { attivo:'badge-green', fermo:'badge-orange', revisione:'badge-red' };
+  const lbl = { attivo:'In Servizio', fermo:'Fermo', revisione:'In Revisione' };
+  return `<span class="badge ${map[stato]||'badge-gray'}">${lbl[stato]||stato||'—'}</span>`;
+}
+
+function filterMezzi() {
+  const q  = document.getElementById('search-mezzi').value.toLowerCase();
+  const st = document.getElementById('filter-stato').value;
+  const tbody = document.getElementById('mezzi-tbody');
+  const filtered = Object.entries(mezziData).filter(([k,m]) => {
+    const matchQ  = !q || [m.matricola,m.targa,m.marca,m.modello].some(v => v&&v.toLowerCase().includes(q));
+    const matchSt = !st || m.stato === st;
+    return matchQ && matchSt;
+  });
+  if (!filtered.length) {
+    tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="empty-icon">🔍</div><div class="empty-text">Nessun risultato</div></div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = filtered.map(([k,m]) => `
+    <tr>
+      <td class="td-matricola">${m.matricola||'—'}</td>
+      <td>${m.targa||'—'}</td>
+      <td>${[m.marca,m.modello].filter(Boolean).join(' / ')||'—'}</td>
+      <td>${m.anno||'—'}</td>
+      <td class="td-km">${m.km_attuali ? Number(m.km_attuali).toLocaleString('it-IT')+' km' : '—'}</td>
+      <td>${badgeStato(m.stato)}</td>
+      <td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--gray3)">${m.note||''}</td>
+      <td><div class="td-actions">
+        <button class="btn btn-secondary btn-sm" onclick="openModalMezzo('${k}')">✏️</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteMezzo('${k}')">🗑</button>
+      </div></td>
+    </tr>`).join('');
+}
+
+function openModalMezzo(key) {
+  editingKey = key || null;
+  document.getElementById('modal-mezzo-title').textContent = key ? 'MODIFICA MEZZO' : 'NUOVO MEZZO';
+  const m = key ? mezziData[key] : {};
+  document.getElementById('f-matricola').value = m.matricola||'';
+  document.getElementById('f-targa').value     = m.targa||'';
+  document.getElementById('f-marca').value     = m.marca||'';
+  document.getElementById('f-modello').value   = m.modello||'';
+  document.getElementById('f-anno').value      = m.anno||'';
+  document.getElementById('f-km').value        = m.km_attuali||'';
+  document.getElementById('f-stato').value     = m.stato||'attivo';
+  document.getElementById('f-data-km').value   = m.data_km||new Date().toISOString().slice(0,10);
+  document.getElementById('f-note').value      = m.note||'';
+  openModal('modal-mezzo');
+}
+
+async function saveMezzo() {
+  const mat = document.getElementById('f-matricola').value.trim();
+  if (!mat) { toast('Matricola obbligatoria', 'error'); return; }
+  const data = {
+    matricola: mat,
+    targa:     document.getElementById('f-targa').value.trim(),
+    marca:     document.getElementById('f-marca').value.trim(),
+    modello:   document.getElementById('f-modello').value.trim(),
+    anno:      document.getElementById('f-anno').value.trim(),
+    km_attuali:document.getElementById('f-km').value.trim(),
+    stato:     document.getElementById('f-stato').value,
+    data_km:   document.getElementById('f-data-km').value,
+    note:      document.getElementById('f-note').value.trim(),
+    aggiornato: new Date().toISOString(),
+  };
+  const ref = editingKey ? db.ref('pagliani/mezzi/'+editingKey) : db.ref('pagliani/mezzi').push();
+  await ref.set(data);
+  closeModal('modal-mezzo');
+  toast(editingKey ? 'Mezzo aggiornato' : 'Mezzo aggiunto', 'success');
+}
+
+async function deleteMezzo(key) {
+  if (!confirm('Eliminare questo mezzo?')) return;
+  await db.ref('pagliani/mezzi/'+key).remove();
+  toast('Mezzo eliminato', 'warning');
+}
+
+function exportCSV() {
+  const rows = [['Matricola','Targa','Marca','Modello','Anno','KM','Stato','Note']];
+  Object.values(mezziData).forEach(m => {
+    rows.push([m.matricola,m.targa,m.marca,m.modello,m.anno,m.km_attuali,m.stato,m.note]);
+  });
+  const csv = rows.map(r => r.map(v => `"${v||''}"`).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  a.download = 'pagliani_mezzi_' + new Date().toISOString().slice(0,10) + '.csv';
+  a.click();
+  toast('CSV esportato', 'success');
+}
+
+// ── IMPORT SAP ──
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('import-zone').classList.remove('dragover');
+  const file = e.dataTransfer.files[0];
+  if (file) parseFileSAP(file);
+}
+
+function handleFileSAP(input) {
+  if (input.files[0]) parseFileSAP(input.files[0]);
+}
+
+function parseFileSAP(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(e.target.result, 'text/html');
+    const rows = doc.querySelectorAll('tr');
+    const skip = parseInt(document.getElementById('col-skip').value) || 1;
+    const cMat = parseInt(document.getElementById('col-matricola').value) || 0;
+    const cTar = parseInt(document.getElementById('col-targa').value)     || 1;
+    const cMar = parseInt(document.getElementById('col-marca').value)     || 2;
+    const cMod = parseInt(document.getElementById('col-modello').value)   || 3;
+    const cAnn = parseInt(document.getElementById('col-anno').value)      || 4;
+    const cKm  = parseInt(document.getElementById('col-km').value)        || 5;
+
+    importRows = [];
+    Array.from(rows).slice(skip).forEach(row => {
+      const cells = row.querySelectorAll('td,th');
+      if (cells.length < 2) return;
+      const mat = cells[cMat]?.textContent?.trim();
+      if (!mat) return;
+      importRows.push({
+        matricola: mat,
+        targa:     cells[cTar]?.textContent?.trim() || '',
+        marca:     cells[cMar]?.textContent?.trim() || '',
+        modello:   cells[cMod]?.textContent?.trim() || '',
+        anno:      cells[cAnn]?.textContent?.trim() || '',
+        km_attuali:cells[cKm ]?.textContent?.replace(/[^0-9]/g,'') || '',
+        stato: 'attivo',
+      });
+    });
+
+    document.getElementById('import-count').textContent = importRows.length;
+    document.getElementById('import-tbody').innerHTML = importRows.slice(0,20).map(m => `
+      <tr>
+        <td>${m.matricola}</td><td>${m.targa}</td><td>${m.marca}</td>
+        <td>${m.modello}</td><td>${m.anno}</td>
+        <td>${m.km_attuali ? Number(m.km_attuali).toLocaleString('it-IT')+' km' : '—'}</td>
+        <td>${badgeStato(m.stato)}</td>
+      </tr>`).join('') + (importRows.length>20?`<tr><td colspan="7" style="text-align:center;color:var(--gray3);font-size:12px">... e altri ${importRows.length-20} mezzi</td></tr>`:'');
+    document.getElementById('import-preview-wrap').style.display = 'block';
+    toast(`${importRows.length} mezzi rilevati dal file`, 'success');
+  };
+  reader.readAsText(file);
+}
+
+async function doImport() {
+  if (!importRows.length) return;
+  const mode = document.getElementById('import-mode').value;
+  let added=0, updated=0, skipped=0;
+
+  for (const m of importRows) {
+    // Cerca se esiste già per matricola
+    const existing = Object.entries(mezziData).find(([k,v]) => v.matricola === m.matricola);
+    if (existing) {
+      if (mode === 'skip') { skipped++; continue; }
+      if (mode === 'merge' || mode === 'overwrite') {
+        await db.ref('pagliani/mezzi/'+existing[0]).update({ ...m, aggiornato: new Date().toISOString() });
+        updated++;
+      }
+    } else {
+      await db.ref('pagliani/mezzi').push({ ...m, aggiornato: new Date().toISOString(), data_km: new Date().toISOString().slice(0,10) });
+      added++;
+    }
+  }
+  toast(`Import completato: ${added} aggiunti, ${updated} aggiornati, ${skipped} saltati`, 'success');
+  resetImport();
+  showPage('mezzi');
+}
+
+function resetImport() {
+  importRows = [];
+  document.getElementById('import-preview-wrap').style.display = 'none';
+  document.getElementById('file-sap').value = '';
+}
+
+// ── UTENTI ──
+function renderUtenti() {
+  const tbody = document.getElementById('utenti-tbody');
+  const rows = Object.entries(utentiData);
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state"><div class="empty-icon">👥</div><div class="empty-text">Nessun utente</div></div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = rows.map(([k,u]) => {
+    const ruolo = ruoliData[u.ruolo_id];
+    const initials = (u.nome||'?').split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
+    return `<tr>
+      <td><div style="display:flex;align-items:center;gap:10px">
+        <div class="utente-avatar">${initials}</div>
+        <span style="font-weight:500">${u.nome||'—'}</span>
+      </div></td>
+      <td style="color:var(--gray3);font-size:12px">${u.username||'—'}</td>
+      <td>${ruolo ? `<span class="badge badge-gray">${ruolo.nome}</span>` : '—'}</td>
+      <td style="color:var(--gray3);font-size:12px">${u.creato ? u.creato.slice(0,10) : '—'}</td>
+      <td><div class="td-actions">
+        <button class="btn btn-secondary btn-sm" onclick="openModalUtente('${k}')">✏️</button>
+        ${k !== currentUser?.key ? `<button class="btn btn-danger btn-sm" onclick="deleteUtente('${k}')">🗑</button>` : ''}
+      </div></td>
+    </tr>`;
+  }).join('');
+}
+
+function openModalUtente(key) {
+  editingKey = key || null;
+  document.getElementById('modal-utente-title').textContent = key ? 'MODIFICA UTENTE' : 'NUOVO UTENTE';
+  const u = key ? utentiData[key] : {};
+  document.getElementById('u-nome').value     = u.nome||'';
+  document.getElementById('u-username').value = u.username||'';
+  document.getElementById('u-pin').value      = '';
+  populateRuoloSelect(u.ruolo_id);
+  openModal('modal-utente');
+}
+
+function populateRuoloSelect(selectedId) {
+  const sel = document.getElementById('u-ruolo');
+  if (!sel) return;
+  sel.innerHTML = Object.entries(ruoliData).map(([k,r]) =>
+    `<option value="${k}" ${k===selectedId?'selected':''}>${r.nome}</option>`
+  ).join('');
+}
+
+async function saveUtente() {
+  const nome = document.getElementById('u-nome').value.trim();
+  const user = document.getElementById('u-username').value.trim();
+  const pin  = document.getElementById('u-pin').value.trim();
+  const ruolo= document.getElementById('u-ruolo').value;
+  if (!nome||!user) { toast('Nome e username obbligatori','error'); return; }
+  const data = { nome, username:user, ruolo_id:ruolo, creato: editingKey ? (utentiData[editingKey]?.creato||new Date().toISOString()) : new Date().toISOString() };
+  if (pin) data.pin = pin;
+  const ref = editingKey ? db.ref('pagliani/utenti/'+editingKey) : db.ref('pagliani/utenti').push();
+  await ref.update(data);
+  closeModal('modal-utente');
+  toast(editingKey ? 'Utente aggiornato' : 'Utente creato', 'success');
+}
+
+async function deleteUtente(key) {
+  if (!confirm('Eliminare questo utente?')) return;
+  await db.ref('pagliani/utenti/'+key).remove();
+  toast('Utente eliminato','warning');
+}
+
+// ── RUOLI ──
+function renderRuoli() {
+  const grid = document.getElementById('ruoli-grid');
+  const rows = Object.entries(ruoliData);
+  if (!rows.length) {
+    grid.innerHTML = `<div class="empty-state"><div class="empty-icon">🔑</div><div class="empty-text">Nessun ruolo configurato</div></div>`;
+    return;
+  }
+  grid.innerHTML = rows.map(([k,r]) => `
+    <div class="ruolo-card ${r.colore==='orange'?'admin-card':''}">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:4px;">
+        <div class="ruolo-nome">${r.nome}</div>
+        <div style="display:flex;gap:6px;">
+          <button class="btn btn-secondary btn-sm" onclick="openModalRuolo('${k}')">✏️</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteRuolo('${k}')">🗑</button>
+        </div>
+      </div>
+      <div class="ruolo-desc">${r.desc||''}</div>
+      <div class="permessi-list">
+        ${ALL_PERMESSI.map(p => `
+          <div class="permesso-item">
+            <span class="permesso-lbl">${p.label}</span>
+            <span class="permesso-val ${r.permessi&&r.permessi[p.key]?'permesso-si':'permesso-no'}">
+              ${r.permessi&&r.permessi[p.key]?'✓ Sì':'✗ No'}
+            </span>
+          </div>`).join('')}
+      </div>
+    </div>`).join('');
+}
+
+function openModalRuolo(key) {
+  editingKey = key || null;
+  const r = key ? ruoliData[key] : {};
+  document.getElementById('r-nome').value = r.nome||'';
+  document.getElementById('r-desc').value = r.desc||'';
+  const container = document.getElementById('permessi-checks');
+  container.innerHTML = ALL_PERMESSI.map(p => `
+    <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;padding:6px 10px;background:var(--gray1);border-radius:4px;">
+      <input type="checkbox" id="perm-${p.key}" ${r.permessi&&r.permessi[p.key]?'checked':''} style="width:16px;height:16px;accent-color:var(--blue);">
+      ${p.label}
+    </label>`).join('');
+  openModal('modal-ruolo');
+}
+
+async function saveRuolo() {
+  const nome = document.getElementById('r-nome').value.trim();
+  if (!nome) { toast('Nome ruolo obbligatorio','error'); return; }
+  const permessi = {};
+  ALL_PERMESSI.forEach(p => { permessi[p.key] = document.getElementById('perm-'+p.key).checked; });
+  const data = { nome, desc: document.getElementById('r-desc').value.trim(), permessi };
+  const ref = editingKey ? db.ref('pagliani/ruoli/'+editingKey) : db.ref('pagliani/ruoli').push();
+  await ref.set(data);
+  closeModal('modal-ruolo');
+  toast(editingKey ? 'Ruolo aggiornato' : 'Ruolo creato','success');
+}
+
+async function deleteRuolo(key) {
+  if (!confirm('Eliminare questo ruolo?')) return;
+  await db.ref('pagliani/ruoli/'+key).remove();
+  toast('Ruolo eliminato','warning');
+}
+
+// ── UTILS ──
+function openModal(id)  { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); editingKey=null; }
+
+function toast(msg, type='info') {
+  const t = document.getElementById('toast');
+  const el = document.createElement('div');
+  el.className = `toast-item ${type}`;
+  el.textContent = msg;
+  t.appendChild(el);
+  setTimeout(() => el.remove(), 3500);
+}
+
+// ══════════════════════════════════════════
+// ── FORNITORI ──
+// ══════════════════════════════════════════
+function renderFornitori(filter='') {
+  const tbody = document.getElementById('fornitori-tbody');
+  const rows = Object.entries(fornitoriData).filter(([k,f]) =>
+    !filter || [f.ragione,f.codice,f.referente,f.email].some(v=>v&&v.toLowerCase().includes(filter))
+  );
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="empty-icon">🏭</div><div class="empty-text">Nessun fornitore registrato</div></div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = rows.map(([k,f]) => `
+    <tr>
+      <td style="font-weight:600">${f.ragione||'—'}</td>
+      <td style="font-family:'Barlow Condensed',sans-serif;font-size:14px">${f.codice||'—'}</td>
+      <td style="color:var(--gray3);font-size:12px">${f.piva||'—'}</td>
+      <td>${f.referente||'—'}</td>
+      <td>${f.tel||'—'}</td>
+      <td style="color:var(--blue);font-size:12px">${f.email||'—'}</td>
+      <td><span class="badge badge-gray">${f.categoria||'—'}</span></td>
+      <td><div class="td-actions">
+        <button class="btn btn-secondary btn-sm" onclick="openModalFornitore('${k}')">✏️</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteFornitore('${k}')">🗑</button>
+      </div></td>
+    </tr>`).join('');
+}
+
+function filterFornitori() {
+  renderFornitori(document.getElementById('search-fornitori').value.toLowerCase());
+}
+
+function openModalFornitore(key) {
+  editingKey = key || null;
+  document.getElementById('modal-fornitore-title').textContent = key ? 'MODIFICA FORNITORE' : 'NUOVO FORNITORE';
+  const f = key ? fornitoriData[key] : {};
+  document.getElementById('fn-ragione').value   = f.ragione||'';
+  document.getElementById('fn-codice').value    = f.codice||'';
+  document.getElementById('fn-piva').value      = f.piva||'';
+  document.getElementById('fn-referente').value = f.referente||'';
+  document.getElementById('fn-tel').value       = f.tel||'';
+  document.getElementById('fn-email').value     = f.email||'';
+  document.getElementById('fn-categoria').value = f.categoria||'Ricambi meccanici';
+  document.getElementById('fn-giorni').value    = f.giorni||'';
+  document.getElementById('fn-indirizzo').value = f.indirizzo||'';
+  document.getElementById('fn-note').value      = f.note||'';
+  openModal('modal-fornitore');
+}
+
+async function saveFornitore() {
+  const ragione = document.getElementById('fn-ragione').value.trim();
+  if (!ragione) { toast('Ragione sociale obbligatoria','error'); return; }
+  const data = {
+    ragione, codice: document.getElementById('fn-codice').value.trim(),
+    piva: document.getElementById('fn-piva').value.trim(),
+    referente: document.getElementById('fn-referente').value.trim(),
+    tel: document.getElementById('fn-tel').value.trim(),
+    email: document.getElementById('fn-email').value.trim(),
+    categoria: document.getElementById('fn-categoria').value,
+    giorni: document.getElementById('fn-giorni').value.trim(),
+    indirizzo: document.getElementById('fn-indirizzo').value.trim(),
+    note: document.getElementById('fn-note').value.trim(),
+    aggiornato: new Date().toISOString(),
+  };
+  const ref = editingKey ? db.ref('pagliani/fornitori/'+editingKey) : db.ref('pagliani/fornitori').push();
+  await ref.set(data);
+  closeModal('modal-fornitore');
+  toast(editingKey ? 'Fornitore aggiornato' : 'Fornitore aggiunto','success');
+}
+
+async function deleteFornitore(key) {
+  if (!confirm('Eliminare questo fornitore?')) return;
+  await db.ref('pagliani/fornitori/'+key).remove();
+  toast('Fornitore eliminato','warning');
+}
+
+function populateFornitoreSelect() {
+  const opts = '<option value="">— Nessuno —</option>' +
+    Object.entries(fornitoriData).map(([k,f])=>`<option value="${k}">${f.ragione}</option>`).join('');
+  ['rc-fornitore','mv-fornitore','ord-fornitore'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = opts;
+  });
+}
+
+// ══════════════════════════════════════════
+// ── RICAMBI ──
+// ══════════════════════════════════════════
+function renderRicambi(filter='', catFilter='') {
+  const tbody = document.getElementById('ricambi-tbody');
+  const rows = Object.entries(ricambiData).filter(([k,r]) => {
+    const mQ = !filter || [r.codice,r.descrizione,r.sap].some(v=>v&&v.toLowerCase().includes(filter));
+    const mC = !catFilter || r.categoria===catFilter;
+    return mQ && mC;
+  });
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state"><div class="empty-icon">🔧</div><div class="empty-text">Nessun ricambio registrato</div></div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = rows.map(([k,r]) => {
+    const forn = fornitoriData[r.fornitore_id];
+    return `<tr>
+      <td style="font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:600">${r.codice||'—'}</td>
+      <td>${r.descrizione||'—'}</td>
+      <td><span class="badge badge-gray">${r.categoria||'—'}</span></td>
+      <td>${r.um||'PZ'}</td>
+      <td style="color:var(--gray3);font-size:12px">${r.sap||'—'}</td>
+      <td style="font-size:12px">${forn?forn.ragione:'—'}</td>
+      <td style="font-family:'Barlow Condensed',sans-serif">${r.prezzo?'€ '+parseFloat(r.prezzo).toFixed(2):'—'}</td>
+      <td>${r.scorta_min||'—'}</td>
+      <td><div class="td-actions">
+        <button class="btn btn-secondary btn-sm" onclick="openModalRicambio('${k}')">✏️</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteRicambio('${k}')">🗑</button>
+      </div></td>
+    </tr>`;
+  }).join('');
+}
+
+function filterRicambi() {
+  renderRicambi(
+    document.getElementById('search-ricambi').value.toLowerCase(),
+    document.getElementById('filter-cat-ricambi').value
+  );
+}
+
+function openModalRicambio(key) {
+  editingKey = key || null;
+  document.getElementById('modal-ricambio-title').textContent = key ? 'MODIFICA RICAMBIO' : 'NUOVO RICAMBIO';
+  const r = key ? ricambiData[key] : {};
+  document.getElementById('rc-codice').value     = r.codice||'';
+  document.getElementById('rc-sap').value        = r.sap||'';
+  document.getElementById('rc-descrizione').value= r.descrizione||'';
+  document.getElementById('rc-categoria').value  = r.categoria||'Motore';
+  document.getElementById('rc-um').value         = r.um||'PZ';
+  document.getElementById('rc-cod-forn').value   = r.cod_forn||'';
+  document.getElementById('rc-prezzo').value     = r.prezzo||'';
+  document.getElementById('rc-scorta-min').value = r.scorta_min||'';
+  document.getElementById('rc-ubicazione').value = r.ubicazione||'';
+  document.getElementById('rc-note').value       = r.note||'';
+  populateFornitoreSelect();
+  if (r.fornitore_id) document.getElementById('rc-fornitore').value = r.fornitore_id;
+  openModal('modal-ricambio');
+}
+
+async function saveRicambio() {
+  const codice = document.getElementById('rc-codice').value.trim();
+  const desc   = document.getElementById('rc-descrizione').value.trim();
+  if (!codice||!desc) { toast('Codice e descrizione obbligatori','error'); return; }
+  const data = {
+    codice, descrizione: desc,
+    sap:        document.getElementById('rc-sap').value.trim(),
+    categoria:  document.getElementById('rc-categoria').value,
+    um:         document.getElementById('rc-um').value,
+    cod_forn:   document.getElementById('rc-cod-forn').value.trim(),
+    fornitore_id: document.getElementById('rc-fornitore').value,
+    prezzo:     document.getElementById('rc-prezzo').value,
+    scorta_min: document.getElementById('rc-scorta-min').value,
+    ubicazione: document.getElementById('rc-ubicazione').value.trim(),
+    note:       document.getElementById('rc-note').value.trim(),
+    aggiornato: new Date().toISOString(),
+  };
+  const ref = editingKey ? db.ref('pagliani/ricambi/'+editingKey) : db.ref('pagliani/ricambi').push();
+  await ref.set(data);
+  closeModal('modal-ricambio');
+  toast(editingKey ? 'Ricambio aggiornato' : 'Ricambio aggiunto','success');
+}
+
+async function deleteRicambio(key) {
+  if (!confirm('Eliminare questo ricambio?')) return;
+  await db.ref('pagliani/ricambi/'+key).remove();
+  toast('Ricambio eliminato','warning');
+}
+
+function exportRicambiCSV() {
+  const rows = [['Codice','Descrizione','Categoria','U.M.','Cod.SAP','Prezzo','Scorta Min','Ubicazione']];
+  Object.values(ricambiData).forEach(r => {
+    rows.push([r.codice,r.descrizione,r.categoria,r.um,r.sap,r.prezzo,r.scorta_min,r.ubicazione]);
+  });
+  const csv = rows.map(r=>r.map(v=>`"${v||''}"`).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  a.download = 'pagliani_ricambi_' + new Date().toISOString().slice(0,10) + '.csv';
+  a.click();
+}
+
+function populateRicambioSelect() {
+  const opts = '<option value="">— Seleziona articolo —</option>' +
+    Object.entries(ricambiData).map(([k,r])=>`<option value="${k}">${r.codice} — ${r.descrizione}</option>`).join('');
+  ['mv-ricambio'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.innerHTML = opts;
+  });
+}
+
+// ══════════════════════════════════════════
+// ── GIACENZE ──
+// ══════════════════════════════════════════
+function getGiacenza(ricambioId) {
+  // Calcola giacenza sommando tutti i movimenti
+  let qta = 0;
+  Object.values(movimentiData).forEach(m => {
+    if (m.ricambio_id !== ricambioId) return;
+    if (m.tipo === 'carico') qta += parseFloat(m.qta)||0;
+    else if (m.tipo === 'scarico') qta -= parseFloat(m.qta)||0;
+  });
+  return Math.max(0, qta);
+}
+
+function renderGiacenze(filter='', alertFilter='') {
+  const tbody = document.getElementById('giacenze-tbody');
+  const rows = Object.entries(ricambiData);
+
+  let totArticoli=0, totSottoscorta=0, totEsauriti=0, totValore=0;
+
+  const filtered = rows.filter(([k,r]) => {
+    const qta = getGiacenza(k);
+    const min = parseFloat(r.scorta_min)||0;
+    const isAlert = qta > 0 && qta <= min;
+    const isZero  = qta === 0;
+    const matchQ  = !filter || [r.codice,r.descrizione].some(v=>v&&v.toLowerCase().includes(filter));
+    const matchA  = !alertFilter ||
+      (alertFilter==='alert' && isAlert) ||
+      (alertFilter==='zero'  && isZero)  ||
+      (alertFilter==='ok'    && !isAlert && !isZero);
+    return matchQ && matchA;
+  });
+
+  rows.forEach(([k,r]) => {
+    const qta = getGiacenza(k);
+    const min = parseFloat(r.scorta_min)||0;
+    totArticoli++;
+    if (qta === 0) totEsauriti++;
+    else if (qta <= min) totSottoscorta++;
+    totValore += qta * (parseFloat(r.prezzo)||0);
+  });
+
+  document.getElementById('stat-articoli').textContent    = totArticoli;
+  document.getElementById('stat-sottoscorta').textContent = totSottoscorta;
+  document.getElementById('stat-esauriti').textContent    = totEsauriti;
+  document.getElementById('stat-valore').textContent      = '€ '+totValore.toLocaleString('it-IT',{minimumFractionDigits:0,maximumFractionDigits:0});
+
+  if (!filtered.length) {
+    tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="empty-icon">📦</div><div class="empty-text">Nessun articolo</div></div></td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = filtered.map(([k,r]) => {
+    const qta = getGiacenza(k);
+    const min = parseFloat(r.scorta_min)||0;
+    let statoBadge;
+    if (qta === 0) statoBadge = '<span class="badge badge-red">❌ Esaurito</span>';
+    else if (min > 0 && qta <= min) statoBadge = '<span class="badge badge-orange">⚠ Sotto scorta</span>';
+    else statoBadge = '<span class="badge badge-green">✓ Regolare</span>';
+    return `<tr>
+      <td style="font-family:'Barlow Condensed',sans-serif;font-weight:600">${r.codice||'—'}</td>
+      <td>${r.descrizione||'—'}</td>
+      <td><span class="badge badge-gray">${r.categoria||'—'}</span></td>
+      <td style="color:var(--gray3);font-size:12px">${r.ubicazione||'—'}</td>
+      <td style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;color:${qta===0?'var(--red)':qta<=min&&min>0?'var(--orange)':'var(--navy)'}">${qta} ${r.um||'PZ'}</td>
+      <td style="color:var(--gray3)">${min||'—'} ${min?r.um||'PZ':''}</td>
+      <td>${statoBadge}</td>
+      <td><div class="td-actions">
+        <button class="btn btn-orange btn-sm" onclick="openModalMovimento('carico','${k}')">＋</button>
+        <button class="btn btn-primary btn-sm" onclick="openModalMovimento('scarico','${k}')">−</button>
+      </div></td>
+    </tr>`;
+  }).join('');
+}
+
+function filterGiacenze() {
+  renderGiacenze(
+    document.getElementById('search-giacenze').value.toLowerCase(),
+    document.getElementById('filter-giacenze-alert').value
+  );
+}
+
+// ══════════════════════════════════════════
+// ── MOVIMENTI ──
+// ══════════════════════════════════════════
+function openModalMovimento(tipo, ricambioId=null) {
+  editingKey = null;
+  const titoli = { carico:'CARICO MERCE', scarico:'SCARICO RICAMBIO', trasferimento:'TRASFERIMENTO' };
+  document.getElementById('modal-movimento-title').textContent = titoli[tipo]||tipo.toUpperCase();
+  document.getElementById('mv-tipo').value = tipo;
+  document.getElementById('mv-data').value = new Date().toISOString().slice(0,10);
+  document.getElementById('mv-qta').value = '';
+  document.getElementById('mv-commessa').value = '';
+  document.getElementById('mv-ddt').value = '';
+  document.getElementById('mv-prezzo').value = '';
+  document.getElementById('mv-note').value = '';
+
+  populateRicambioSelect();
+  if (ricambioId) document.getElementById('mv-ricambio').value = ricambioId;
+
+  // Popola select mezzi
+  const mezzOpts = '<option value="">— Nessuno —</option>' +
+    Object.values(mezziData).map(m=>`<option value="${m.matricola}">${m.matricola}${m.targa?' — '+m.targa:''}</option>`).join('');
+  document.getElementById('mv-mezzo').innerHTML = mezzOpts;
+
+  // Popola fornitori
+  populateFornitoreSelect();
+
+  // Mostra/nascondi fornitore in base al tipo
+  document.getElementById('mv-fornitore-wrap').style.display = tipo==='carico' ? '' : 'none';
+
+  openModal('modal-movimento');
+}
+
+async function saveMovimento() {
+  const ricId = document.getElementById('mv-ricambio').value;
+  const qta   = parseFloat(document.getElementById('mv-qta').value);
+  const tipo  = document.getElementById('mv-tipo').value;
+  if (!ricId) { toast('Seleziona un articolo','error'); return; }
+  if (!qta || qta <= 0) { toast('Quantità non valida','error'); return; }
+
+  // Controlla giacenza per scarico
+  if (tipo === 'scarico') {
+    const giacenza = getGiacenza(ricId);
+    if (qta > giacenza) { toast(`Giacenza insufficiente (disponibile: ${giacenza})`, 'error'); return; }
+  }
+
+  const data = {
+    tipo, ricambio_id: ricId,
+    ricambio_desc: ricambiData[ricId]?.descrizione||'',
+    qta,
+    data:      document.getElementById('mv-data').value,
+    mezzo:     document.getElementById('mv-mezzo').value,
+    commessa:  document.getElementById('mv-commessa').value.trim(),
+    fornitore_id: document.getElementById('mv-fornitore').value,
+    prezzo:    document.getElementById('mv-prezzo').value,
+    ddt:       document.getElementById('mv-ddt').value.trim(),
+    note:      document.getElementById('mv-note').value.trim(),
+    operatore: currentUser?.nome||'—',
+    creato:    new Date().toISOString(),
+  };
+  await db.ref('pagliani/movimenti').push(data);
+  closeModal('modal-movimento');
+  const lbl = tipo==='carico'?'Carico registrato':tipo==='scarico'?'Scarico registrato':'Trasferimento registrato';
+  toast(lbl,'success');
+}
+
+function renderMovimenti(filter='', tipoFilter='', dataFilter='') {
+  const tbody = document.getElementById('movimenti-tbody');
+  const rows = Object.entries(movimentiData)
+    .filter(([k,m]) => {
+      const mQ = !filter || [m.ricambio_desc,m.mezzo,m.commessa,m.ddt].some(v=>v&&v.toLowerCase().includes(filter));
+      const mT = !tipoFilter || m.tipo===tipoFilter;
+      const mD = !dataFilter || m.data===dataFilter;
+      return mQ && mT && mD;
+    })
+    .sort((a,b) => (b[1].creato||'').localeCompare(a[1].creato||''));
+
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="empty-icon">↕️</div><div class="empty-text">Nessun movimento registrato</div></div></td></tr>`;
+    return;
+  }
+
+  const tipoBadge = { carico:'badge-green', scarico:'badge-red', trasferimento:'badge-orange' };
+  const tipoLabel = { carico:'▲ Carico', scarico:'▼ Scarico', trasferimento:'↔ Trasfert.' };
+
+  tbody.innerHTML = rows.map(([k,m]) => `
+    <tr>
+      <td style="color:var(--gray3);font-size:12px">${m.data||'—'}</td>
+      <td><span class="badge ${tipoBadge[m.tipo]||'badge-gray'}">${tipoLabel[m.tipo]||m.tipo}</span></td>
+      <td>
+        <div style="font-weight:600;font-size:12px">${m.ricambio_desc||'—'}</div>
+        <div style="color:var(--gray3);font-size:11px">${ricambiData[m.ricambio_id]?.codice||''}</div>
+      </td>
+      <td style="font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700">${m.qta||0} ${ricambiData[m.ricambio_id]?.um||''}</td>
+      <td style="font-family:'Barlow Condensed',sans-serif">${m.mezzo||'—'}</td>
+      <td style="color:var(--gray3);font-size:12px">${m.commessa||'—'}</td>
+      <td style="font-size:12px">${m.tipo==='carico'?(fornitoriData[m.fornitore_id]?.ragione||m.ddt||'—'):m.note||'—'}</td>
+      <td style="font-size:12px;color:var(--gray3)">${m.operatore||'—'}</td>
+    </tr>`).join('');
+}
+
+function filterMovimenti() {
+  renderMovimenti(
+    document.getElementById('search-movimenti').value.toLowerCase(),
+    document.getElementById('filter-tipo-mov').value,
+    document.getElementById('filter-data-mov').value
+  );
+}
+
+function exportMovimentiCSV() {
+  const rows = [['Data','Tipo','Articolo','Qta','Mezzo','Commessa','DDT','Operatore']];
+  Object.values(movimentiData).forEach(m => {
+    rows.push([m.data,m.tipo,m.ricambio_desc,m.qta,m.mezzo,m.commessa,m.ddt,m.operatore]);
+  });
+  const csv = rows.map(r=>r.map(v=>`"${v||''}"`).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  a.download = 'pagliani_movimenti_' + new Date().toISOString().slice(0,10) + '.csv';
+  a.click();
+}
+
+// ══════════════════════════════════════════
+// ── ORDINI ACQUISTO ──
+// ══════════════════════════════════════════
+let righeOrdine = [];
+
+function openModalOrdine(key) {
+  editingKey = key || null;
+  righeOrdine = key && ordiniData[key]?.righe ? [...ordiniData[key].righe] : [];
+  const o = key ? ordiniData[key] : {};
+  document.getElementById('modal-ordine-title').textContent = key ? 'MODIFICA ORDINE' : 'NUOVO ORDINE ACQUISTO';
+  document.getElementById('ord-data').value      = o.data||new Date().toISOString().slice(0,10);
+  document.getElementById('ord-data-cons').value = o.data_cons||'';
+  document.getElementById('ord-stato').value     = o.stato||'bozza';
+  document.getElementById('ord-note').value      = o.note||'';
+  populateFornitoreSelect();
+  if (o.fornitore_id) document.getElementById('ord-fornitore').value = o.fornitore_id;
+  renderRigheOrdine();
+  openModal('modal-ordine');
+}
+
+function addRigaOrdine() {
+  righeOrdine.push({ ricambio_id:'', descrizione:'', qta:1, prezzo:0 });
+  renderRigheOrdine();
+}
+
+function renderRigheOrdine() {
+  const tbody = document.getElementById('righe-ordine-tbody');
+  if (!righeOrdine.length) {
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--gray3);padding:16px">Nessuna riga — clicca "Aggiungi riga"</td></tr>`;
+    document.getElementById('ord-totale').textContent = '0.00';
+    return;
+  }
+  tbody.innerHTML = righeOrdine.map((r,i) => {
+    const tot = (parseFloat(r.qta)||0) * (parseFloat(r.prezzo)||0);
+    const opts = Object.entries(ricambiData).map(([k,rc])=>`<option value="${k}" ${k===r.ricambio_id?'selected':''}>${rc.codice} — ${rc.descrizione}</option>`).join('');
+    return `<tr>
+      <td><select class="form-select" style="font-size:12px" onchange="updateRiga(${i},'ricambio_id',this.value)">
+        <option value="">— Articolo —</option>${opts}
+      </select></td>
+      <td><input class="form-input" type="number" min="0.01" step="0.01" value="${r.qta||''}" style="width:70px" onchange="updateRiga(${i},'qta',this.value)"></td>
+      <td><input class="form-input" type="number" min="0" step="0.01" value="${r.prezzo||''}" style="width:90px" onchange="updateRiga(${i},'prezzo',this.value)"></td>
+      <td style="font-family:'Barlow Condensed',sans-serif;font-weight:700">€ ${tot.toFixed(2)}</td>
+      <td><button class="btn btn-danger btn-sm" onclick="removeRiga(${i})">✕</button></td>
+    </tr>`;
+  }).join('');
+  const tot = righeOrdine.reduce((s,r)=>s+(parseFloat(r.qta)||0)*(parseFloat(r.prezzo)||0),0);
+  document.getElementById('ord-totale').textContent = tot.toFixed(2);
+}
+
+function updateRiga(i, field, val) {
+  righeOrdine[i][field] = val;
+  if (field==='ricambio_id') {
+    const r = ricambiData[val];
+    if (r) { righeOrdine[i].descrizione=r.descrizione; righeOrdine[i].prezzo=r.prezzo||0; }
+  }
+  renderRigheOrdine();
+}
+
+function removeRiga(i) {
+  righeOrdine.splice(i,1);
+  renderRigheOrdine();
+}
+
+async function saveOrdine() {
+  const fornId = document.getElementById('ord-fornitore').value;
+  if (!fornId) { toast('Seleziona un fornitore','error'); return; }
+  if (!righeOrdine.length) { toast('Aggiungi almeno una riga','error'); return; }
+  const tot = righeOrdine.reduce((s,r)=>s+(parseFloat(r.qta)||0)*(parseFloat(r.prezzo)||0),0);
+  const num = editingKey ? ordiniData[editingKey].numero : 'ORD-'+Date.now().toString().slice(-6);
+  const data = {
+    numero: num,
+    fornitore_id: fornId,
+    fornitore_nome: fornitoriData[fornId]?.ragione||'',
+    data:      document.getElementById('ord-data').value,
+    data_cons: document.getElementById('ord-data-cons').value,
+    stato:     document.getElementById('ord-stato').value,
+    note:      document.getElementById('ord-note').value.trim(),
+    righe:     righeOrdine,
+    totale:    tot,
+    creato:    new Date().toISOString(),
+  };
+  const ref = editingKey ? db.ref('pagliani/ordini/'+editingKey) : db.ref('pagliani/ordini').push();
+  await ref.set(data);
+  closeModal('modal-ordine');
+  toast(editingKey ? 'Ordine aggiornato' : 'Ordine creato','success');
+}
+
+function renderOrdini(filter='', statoFilter='') {
+  const tbody = document.getElementById('ordini-tbody');
+  const rows = Object.entries(ordiniData)
+    .filter(([k,o]) => {
+      const mQ = !filter || [o.numero,o.fornitore_nome].some(v=>v&&v.toLowerCase().includes(filter));
+      const mS = !statoFilter || o.stato===statoFilter;
+      return mQ && mS;
+    })
+    .sort((a,b)=>(b[1].creato||'').localeCompare(a[1].creato||''));
+
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="empty-icon">🛒</div><div class="empty-text">Nessun ordine</div></div></td></tr>`;
+    return;
+  }
+
+  const statoBadge = { bozza:'badge-gray', inviato:'badge-orange', confermato:'badge-green', ricevuto:'badge-orange', chiuso:'badge-green' };
+  const statoLabel = { bozza:'Bozza', inviato:'Inviato', confermato:'Confermato', ricevuto:'Ric. parz.', chiuso:'Chiuso' };
+
+  tbody.innerHTML = rows.map(([k,o]) => `
+    <tr>
+      <td style="font-family:'Barlow Condensed',sans-serif;font-weight:700">${o.numero||'—'}</td>
+      <td style="color:var(--gray3);font-size:12px">${o.data||'—'}</td>
+      <td style="font-weight:500">${o.fornitore_nome||'—'}</td>
+      <td style="color:var(--gray3);font-size:12px">${o.righe?o.righe.length+' art.':'—'}</td>
+      <td style="font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700">€ ${parseFloat(o.totale||0).toFixed(2)}</td>
+      <td><span class="badge ${statoBadge[o.stato]||'badge-gray'}">${statoLabel[o.stato]||o.stato}</span></td>
+      <td style="color:var(--gray3);font-size:12px">${o.data_cons||'—'}</td>
+      <td><div class="td-actions">
+        <button class="btn btn-secondary btn-sm" onclick="openModalOrdine('${k}')">✏️</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteOrdine('${k}')">🗑</button>
+      </div></td>
+    </tr>`).join('');
+}
+
+function filterOrdini() {
+  renderOrdini(
+    document.getElementById('search-ordini').value.toLowerCase(),
+    document.getElementById('filter-stato-ordine').value
+  );
+}
+
+async function deleteOrdine(key) {
+  if (!confirm('Eliminare questo ordine?')) return;
+  await db.ref('pagliani/ordini/'+key).remove();
+  toast('Ordine eliminato','warning');
+}
+
+// ── DASHBOARD aggiornata con alert magazzino ──
+function renderDashboard() {
+  const vals = Object.values(mezziData);
+  document.getElementById('stat-totale').textContent    = vals.length;
+  document.getElementById('stat-attivi').textContent    = vals.filter(m=>m.stato==='attivo').length;
+  document.getElementById('stat-fermi').textContent     = vals.filter(m=>m.stato==='fermo').length;
+  document.getElementById('stat-revisione').textContent = vals.filter(m=>m.stato==='revisione').length;
+
+  const tbody = document.getElementById('dash-tbody');
+  if (!vals.length) {
+    tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><div class="empty-icon">🚌</div><div class="empty-text">Nessun mezzo registrato</div></div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = Object.entries(mezziData).map(([k,m]) => `
+    <tr>
+      <td class="td-matricola">${m.matricola||'—'}</td>
+      <td>${m.targa||'—'}</td>
+      <td>${[m.marca,m.modello].filter(Boolean).join(' ')||'—'}</td>
+      <td class="td-km">${m.km_attuali?Number(m.km_attuali).toLocaleString('it-IT')+' km':'—'}</td>
+      <td>${badgeStato(m.stato)}</td>
+      <td style="color:var(--gray3);font-size:12px">${m.data_km||'—'}</td>
+    </tr>`).join('');
+}
+// ══════════════════════════════════════════
+// ── IMPORT TAB SWITCH ──
+// ══════════════════════════════════════════
+function switchImportTab(tab) {
+  document.getElementById('tab-manut').style.display = tab==='manut' ? '' : 'none';
+  document.getElementById('tab-mezzi').style.display = tab==='mezzi' ? '' : 'none';
+  document.getElementById('tab-btn-manut').style.background = tab==='manut' ? 'var(--navy)' : '#fff';
+  document.getElementById('tab-btn-manut').style.color      = tab==='manut' ? '#fff' : 'var(--gray3)';
+  document.getElementById('tab-btn-mezzi').style.background = tab==='mezzi' ? 'var(--navy)' : '#fff';
+  document.getElementById('tab-btn-mezzi').style.color      = tab==='mezzi' ? '#fff' : 'var(--gray3)';
+}
+
+// ══════════════════════════════════════════
+// ── IMPORT MANUTENZIONI SAP ──
+// ══════════════════════════════════════════
+let importManutRows = [];
+
+function handleDropManut(e) {
+  e.preventDefault();
+  document.getElementById('import-zone-manut').classList.remove('dragover');
+  const file = e.dataTransfer.files[0];
+  if (file) parseFileManut(file);
+}
+function handleFileManut(input) {
+  if (input.files[0]) parseFileManut(input.files[0]);
+}
+
+function parseFileManut(file) {
+  const ext = file.name.split('.').pop().toLowerCase();
+
+  if (ext === 'xlsx' || ext === 'xls') {
+    // ── EXCEL via SheetJS ──
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        const wb = XLSX.read(e.target.result, { type:'array' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const raw = XLSX.utils.sheet_to_json(ws, { header:1, defval:'', raw:true });
+        processRawRows(raw);
+      } catch(err) {
+        toast('Errore lettura Excel: ' + err.message, 'error');
+      }
+    };
+    reader.readAsArrayBuffer(file);
+
+  } else if (ext === 'csv') {
+    // ── CSV ──
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        const wb = XLSX.read(e.target.result, { type:'string' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const raw = XLSX.utils.sheet_to_json(ws, { header:1, defval:'' });
+        processRawRows(raw);
+      } catch(err) {
+        toast('Errore lettura CSV: ' + err.message, 'error');
+      }
+    };
+    reader.readAsText(file, 'UTF-8');
+
+  } else {
+    // ── HTML (fallback) ──
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(e.target.result, 'text/html');
+        const rows = doc.querySelectorAll('tr');
+        const raw = Array.from(rows).map(row =>
+          Array.from(row.querySelectorAll('td,th')).map(c => c.textContent.trim())
+        );
+        processRawRows(raw);
+      } catch(err) {
+        toast('Errore lettura HTML: ' + err.message, 'error');
+      }
+    };
+    reader.readAsText(file, 'UTF-8');
+  }
+}
+
+function processRawRows(raw) {
+  const skip  = parseInt(document.getElementById('mc-skip').value)||1;
+  const cMat  = parseInt(document.getElementById('mc-matricola').value)||0;
+  const cOrd  = parseInt(document.getElementById('mc-ordine').value)||1;
+  const cTipo = parseInt(document.getElementById('mc-tipo').value)||2;
+  const cCent = parseInt(document.getElementById('mc-centro').value)||3;
+  const cData = parseInt(document.getElementById('mc-data').value)||4;
+  const cDesc = parseInt(document.getElementById('mc-desc').value)||5;
+  const cPacc = parseInt(document.getElementById('mc-pacch').value)||6;
+  const cKm   = parseInt(document.getElementById('mc-km').value)||7;
+
+  importManutRows = [];
+  const mezziDistinti = new Set();
+
+  raw.slice(skip).forEach(cells => {
+    if (!cells || cells.length < 2) return;
+    const mat = String(cells[cMat]||'').trim();
+    if (!mat || mat.toLowerCase()==='sede tecnica') return;
+    const ord = String(cells[cOrd]||'').trim();
+    if (!ord) return;
+
+    mezziDistinti.add(mat);
+    importManutRows.push({
+      matricola:   mat,
+      ordine_sap:  ord,
+      tipo:        String(cells[cTipo]||'').trim(),
+      centro:      String(cells[cCent]||'').trim(),
+      data_prev:   parseSAPDate(cells[cData]),
+      descrizione: String(cells[cDesc]||'').trim(),
+      pacchetto:   String(cells[cPacc]||'').trim(),
+      diff_km:     String(cells[cKm ]||'').trim(),
+      stato:       'programmata',
+    });
+  });
+
+  document.getElementById('manut-count').textContent = importManutRows.length;
+  document.getElementById('manut-mezzi-count').textContent = mezziDistinti.size;
+
+  if (!importManutRows.length) {
+    toast('Nessuna riga trovata — verifica il numero di righe header da saltare', 'error');
+    return;
+  }
+
+  const tbody = document.getElementById('manut-tbody');
+  tbody.innerHTML = importManutRows.slice(0,30).map(m => `
+    <tr>
+      <td style="font-family:'Barlow Condensed',sans-serif;font-weight:700">${m.matricola}</td>
+      <td style="font-size:11px;color:var(--gray3)">${m.ordine_sap}</td>
+      <td><span class="badge badge-gray">${m.tipo}</span></td>
+      <td style="font-size:12px">${m.descrizione}</td>
+      <td style="font-size:12px">${m.data_prev||'—'}</td>
+      <td style="font-family:'Barlow Condensed',sans-serif;color:${parseFloat(m.diff_km)<0?'var(--red)':'var(--green)'}">${m.diff_km}</td>
+      <td style="font-size:11px;color:var(--gray3)">${m.centro}</td>
+      <td style="font-size:11px">${m.pacchetto}</td>
+    </tr>`).join('') +
+    (importManutRows.length>30?`<tr><td colspan="8" style="text-align:center;color:var(--gray3);font-size:12px;padding:10px">... e altre ${importManutRows.length-30} righe</td></tr>`:'');
+
+  document.getElementById('import-preview-manut').style.display = 'block';
+  toast(`✓ ${importManutRows.length} manutenzioni rilevate da ${mezziDistinti.size} mezzi`, 'success');
+}
+
+function parseSAPDate(val) {
+  if (!val && val !== 0) return '';
+  // Excel Date object (SheetJS con cellDates:true)
+  if (val instanceof Date) {
+    // Fix fuso orario: usa la data locale invece di UTC
+    const y = val.getFullYear();
+    const m = String(val.getMonth()+1).padStart(2,'0');
+    const d = String(val.getDate()).padStart(2,'0');
+    return `${y}-${m}-${d}`;
+  }
+  const str = String(val).trim();
+  if (!str) return '';
+  // Formato DD/MM/YYYY o DD.MM.YYYY
+  const m1 = str.match(/^(\d{1,2})[\/\.](\d{1,2})[\/\.](\d{4})$/);
+  if (m1) return `${m1[3]}-${m1[2].padStart(2,'0')}-${m1[1].padStart(2,'0')}`;
+  // Formato YYYY-MM-DD
+  const m2 = str.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m2) return str.slice(0,10);
+  // Numero seriale Excel — aggiungi offset timezone
+  const serial = parseFloat(str);
+  if (!isNaN(serial) && serial > 40000 && serial < 60000) {
+    const d = new Date(Math.round((serial - 25569) * 86400 * 1000));
+    const y = d.getUTCFullYear();
+    const mo = String(d.getUTCMonth()+1).padStart(2,'0');
+    const dy = String(d.getUTCDate()).padStart(2,'0');
+    return `${y}-${mo}-${dy}`;
+  }
+  return str;
+}
+
+async function doImportManut() {
+  if (!importManutRows.length) return;
+  const mode = document.getElementById('manut-mode').value;
+  let added=0, updated=0, skipped=0;
+
+  for (const m of importManutRows) {
+    const existing = Object.entries(manutenzioniData)
+      .find(([k,v]) => v.ordine_sap === m.ordine_sap && v.matricola === m.matricola);
+    if (existing) {
+      if (mode==='skip') { skipped++; continue; }
+      await db.ref('pagliani/manutenzioni/'+existing[0]).update({ ...m, aggiornato: new Date().toISOString() });
+      updated++;
+    } else {
+      await db.ref('pagliani/manutenzioni').push({ ...m, aggiornato: new Date().toISOString() });
+      added++;
+    }
+    // Auto-crea mezzo se non esiste
+    const mezzoEsiste = Object.values(mezziData).find(v=>v.matricola===m.matricola);
+    if (!mezzoEsiste) {
+      await db.ref('pagliani/mezzi').push({
+        matricola: m.matricola, stato:'attivo',
+        aggiornato: new Date().toISOString(), data_km: new Date().toISOString().slice(0,10)
+      });
+    }
+  }
+  toast(`Import: ${added} aggiunte, ${updated} aggiornate, ${skipped} saltate`, 'success');
+  resetImportManut();
+  showPage('manutenzioni');
+}
+
+function resetImportManut() {
+  importManutRows = [];
+  document.getElementById('import-preview-manut').style.display = 'none';
+  document.getElementById('file-manut').value = '';
+}
+
+// ══════════════════════════════════════════
+// ── MANUTENZIONI ──
+// ══════════════════════════════════════════
+function renderManutenzioni(filter='', statoF='', tipoF='') {
+  const tbody = document.getElementById('manut-list-tbody');
+  if (!tbody) return;
+  const today = new Date().toISOString().slice(0,10);
+  const rows = Object.entries(manutenzioniData).filter(([k,m]) => {
+    const mQ = !filter || [m.matricola,m.descrizione,m.ordine_sap].some(v=>v&&v.toLowerCase().includes(filter));
+    const mS = !statoF || m.stato===statoF;
+    const mT = !tipoF  || m.tipo===tipoF;
+    return mQ && mS && mT;
+  }).sort((a,b)=>(a[1].data_prev||'').localeCompare(b[1].data_prev||''));
+
+  const all = Object.values(manutenzioniData);
+  const stEl = id => { const e=document.getElementById(id); if(e) e.textContent=0; };
+  const setEl = (id,v) => { const e=document.getElementById(id); if(e) e.textContent=v; };
+  setEl('stat-manut-tot',  all.length);
+  setEl('stat-manut-prog', all.filter(m=>m.stato==='programmata'||m.stato==='in_corso').length);
+  setEl('stat-manut-comp', all.filter(m=>m.stato==='completata').length);
+  setEl('stat-manut-scad', all.filter(m=>m.stato==='scaduta'||(m.data_prev&&m.data_prev<today&&m.stato!=='completata')).length);
+
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state"><div class="empty-icon">🔧</div><div class="empty-text">Nessuna manutenzione</div><div class="empty-sub">Importa da SAP o aggiungi manualmente</div></div></td></tr>`;
+    return;
+  }
+  const statoBadge = { programmata:'badge-orange', in_corso:'badge-green', completata:'badge-gray', scaduta:'badge-red' };
+  const statoLabel = { programmata:'Programmata', in_corso:'In corso', completata:'Completata', scaduta:'Scaduta' };
+  tbody.innerHTML = rows.map(([k,m]) => {
+    const isScaduta = m.data_prev && m.data_prev < today && m.stato!=='completata';
+    const stato = isScaduta ? 'scaduta' : (m.stato||'programmata');
+    const km = parseFloat(m.diff_km)||0;
+    return `<tr>
+      <td style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:15px">${m.matricola||'—'}</td>
+      <td style="font-size:11px;color:var(--gray3)">${m.ordine_sap||'—'}</td>
+      <td><span class="badge badge-gray">${m.tipo||'—'}</span></td>
+      <td style="font-size:12px;max-width:220px">${m.descrizione||'—'}</td>
+      <td style="font-size:12px;${isScaduta?'color:var(--red);font-weight:600':''}">${m.data_prev||'—'}</td>
+      <td style="font-family:'Barlow Condensed',sans-serif;font-weight:700;color:${km<0?'var(--red)':km>0?'var(--green)':'var(--gray3)'}">${m.diff_km||'—'}</td>
+      <td style="font-size:11px;color:var(--gray3)">${m.centro||'—'}</td>
+      <td><span class="badge ${statoBadge[stato]||'badge-gray'}">${statoLabel[stato]||stato}</span></td>
+      <td><div class="td-actions">
+        <button class="btn btn-secondary btn-sm" onclick="openModalManutManuale('${k}')">✏️</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteManut('${k}')">🗑</button>
+      </div></td>
+    </tr>`;
+  }).join('');
+}
+
+function filterManutenzioni() {
+  renderManutenzioni(
+    document.getElementById('search-manut').value.toLowerCase(),
+    document.getElementById('filter-manut-stato').value,
+    document.getElementById('filter-manut-tipo').value
+  );
+}
+
+function openModalManutManuale(key) {
+  editingKey = key || null;
+  document.getElementById('modal-manut-title').textContent = key ? 'MODIFICA MANUTENZIONE' : 'NUOVA MANUTENZIONE';
+  const m = key ? manutenzioniData[key] : {};
+  const mezzOpts = '<option value="">— Seleziona mezzo —</option>' +
+    Object.values(mezziData).map(v=>`<option value="${v.matricola}" ${v.matricola===m.matricola?'selected':''}>${v.matricola}${v.targa?' — '+v.targa:''}</option>`).join('');
+  document.getElementById('mm-matricola').innerHTML = mezzOpts;
+  document.getElementById('mm-ordine').value = m.ordine_sap||'';
+  document.getElementById('mm-tipo').value   = m.tipo||'ZM04';
+  document.getElementById('mm-centro').value = m.centro||'';
+  document.getElementById('mm-desc').value   = m.descrizione||'';
+  document.getElementById('mm-data').value   = m.data_prev||'';
+  document.getElementById('mm-km').value     = m.diff_km||'';
+  document.getElementById('mm-pacch').value  = m.pacchetto||'';
+  document.getElementById('mm-stato').value  = m.stato||'programmata';
+  document.getElementById('mm-note').value   = m.note||'';
+  openModal('modal-manut-manuale');
+}
+
+async function saveManutManuale() {
+  const mat  = document.getElementById('mm-matricola').value;
+  const desc = document.getElementById('mm-desc').value.trim();
+  if (!mat)  { toast('Seleziona un mezzo','error'); return; }
+  if (!desc) { toast('Descrizione obbligatoria','error'); return; }
+  const data = {
+    matricola: mat, ordine_sap: document.getElementById('mm-ordine').value.trim(),
+    tipo: document.getElementById('mm-tipo').value, centro: document.getElementById('mm-centro').value.trim(),
+    descrizione: desc, data_prev: document.getElementById('mm-data').value,
+    diff_km: document.getElementById('mm-km').value, pacchetto: document.getElementById('mm-pacch').value.trim(),
+    stato: document.getElementById('mm-stato').value, note: document.getElementById('mm-note').value.trim(),
+    aggiornato: new Date().toISOString(),
+  };
+  const ref = editingKey ? db.ref('pagliani/manutenzioni/'+editingKey) : db.ref('pagliani/manutenzioni').push();
+  await ref.set(data);
+  closeModal('modal-manut-manuale');
+  toast(editingKey ? 'Manutenzione aggiornata' : 'Manutenzione aggiunta','success');
+}
+
+async function deleteManut(key) {
+  if (!confirm('Eliminare questa manutenzione?')) return;
+  await db.ref('pagliani/manutenzioni/'+key).remove();
+  toast('Manutenzione eliminata','warning');
+}
+
+function exportManutenzioniCSV() {
+  const rows = [['Matricola','N°Ordine','Tipo','Descrizione','Data Prev.','Diff KM','Centro','Pacchetto','Stato']];
+  Object.values(manutenzioniData).forEach(m => {
+    rows.push([m.matricola,m.ordine_sap,m.tipo,m.descrizione,m.data_prev,m.diff_km,m.centro,m.pacchetto,m.stato]);
+  });
+  const csv = rows.map(r=>r.map(v=>`"${v||''}"`).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  a.download = 'pagliani_manutenzioni_' + new Date().toISOString().slice(0,10) + '.csv';
+  a.click();
+  toast('CSV esportato','success');
+}
+
+document.getElementById('login-pin').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
+document.getElementById('login-user').addEventListener('keydown', e => { if(e.key==='Enter') document.getElementById('login-pin').focus(); });
+
+// Chiudi modal cliccando overlay
+document.querySelectorAll('.modal-overlay').forEach(o => {
+  o.addEventListener('click', e => { if(e.target===o) closeModal(o.id); });
+});
+
+// Check sessione salvata
+const savedSession = localStorage.getItem('pagliani_session');
+if (savedSession) {
+  try {
+    currentUser = JSON.parse(savedSession);
+    startApp();
+  } catch(e) { localStorage.removeItem('pagliani_session'); }
+}
+</script>
+</body>
+</html>
